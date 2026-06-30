@@ -4,12 +4,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import com.abo7tb.childapp.data.local.SecurePrefsManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class StealthManager @Inject constructor(
-    private val context: Context,
+    @ApplicationContext private val context: Context,
     private val securePrefsManager: SecurePrefsManager
 ) {
     
