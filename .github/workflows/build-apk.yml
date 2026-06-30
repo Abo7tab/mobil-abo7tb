@@ -44,37 +44,32 @@ jobs:
         path: app/build/outputs/apk/debug/app-debug.apk
         retention-days: 90
     
-    # إنشاء Release تلقائياً
-    - name: Get version
-      id: version
-      run: echo "VERSION=v1.0.$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
-    
     - name: Rename APK
       run: |
         mkdir -p release
-        cp app/build/outputs/apk/debug/app-debug.apk release/FamilyGuard-Child-${{ steps.version.outputs.VERSION }}.apk
-    
+        cp app/build/outputs/apk/debug/app-debug.apk release/FamilyGuard-Child-latest.apk
+
+    # احذف أي Releases قديمة — نبقي release واحد فقط (latest)
+    - name: Clean old releases
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release list --limit 100 --json tagName --jq '.[].tagName' | while read -r tag; do
+          gh release delete "$tag" --yes || true
+          git push origin ":refs/tags/$tag" 2>/dev/null || true
+        done
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.version.outputs.VERSION }}
-        name: Family Guard ${{ steps.version.outputs.VERSION }}
+        tag_name: latest
+        name: Family Guard - Latest
         body: |
-          ## 📱 Family Guard - Child App
-          
-          ### 📥 التحميل المباشر:
-          حمّل ملف APK من قسم Assets في الأسفل
-          
-          ### 🔧 المميزات:
-          - ✅ كل ميزات الرقابة الأبوية
-          - ✅ Stealth Mode + Anti-Uninstall
-          - ✅ Firebase Cloud Messaging
-          
-          ### 📲 طريقة التثبيت:
-          1. حمّل ملف APK من Assets
-          2. افتح Settings → Security → فعّل Unknown Sources
-          3. اضغط على ملف APK لتثبيته
-          
+          ## 📱 Family Guard - Child App (Latest)
+
+          ### 📥 التحميل:
+          حمّل ملف APK من Assets
+
           ### 📋 Build Info:
           - Build Number: ${{ github.run_number }}
           - Commit: ${{ github.sha }}
