@@ -13,8 +13,21 @@ import retrofit2.http.Path
 
 interface ChildApiService {
 
+    @retrofit2.http.FormUrlEncoded
     @POST("devices/register")
-    suspend fun registerDevice(@Body request: RegisterRequest): Response<RegisterResponse>
+    suspend fun registerDevice(
+        @retrofit2.http.Field("parent_email") parentEmail: String,
+        @retrofit2.http.Field("parent_password") parentPassword: String,
+        @retrofit2.http.Field("child_name") childName: String,
+        @retrofit2.http.Field("child_age") childAge: Int,
+        @retrofit2.http.Field("device_name") deviceName: String,
+        @retrofit2.http.Field("device_model") deviceModel: String,
+        @retrofit2.http.Field("device_brand") deviceBrand: String,
+        @retrofit2.http.Field("android_version") androidVersion: String,
+        @retrofit2.http.Field("sdk_version") sdkVersion: Int,
+        @retrofit2.http.Field("device_id") deviceId: String,
+        @retrofit2.http.Field("app_version") appVersion: String
+    ): Response<RegisterResponse>
 
     @POST("devices/{uuid}/heartbeat")
     suspend fun sendHeartbeat(

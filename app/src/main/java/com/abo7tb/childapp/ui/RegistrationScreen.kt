@@ -21,6 +21,7 @@ import com.abo7tb.childapp.utils.StealthManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun RegistrationScreen(
@@ -121,8 +122,16 @@ fun PermissionsView(onNext: () -> Unit) {
 
         Spacer(modifier = Modifier.height(32.dp))
         
+        val coroutineScope = rememberCoroutineScope()
+        
         Button(
-            onClick = onNext, 
+            onClick = { 
+                android.widget.Toast.makeText(context, "تم الانتهاء من منح الصلاحيات بنجاح!", android.widget.Toast.LENGTH_SHORT).show()
+                coroutineScope.launch {
+                    kotlinx.coroutines.delay(1000)
+                    onNext()
+                }
+            }, 
             modifier = Modifier.fillMaxWidth(),
             enabled = permissionsState.allPermissionsGranted
         ) { 

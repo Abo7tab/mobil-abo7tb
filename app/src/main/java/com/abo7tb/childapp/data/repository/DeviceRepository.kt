@@ -14,7 +14,19 @@ class DeviceRepository @Inject constructor(
 
     suspend fun registerDevice(request: com.abo7tb.childapp.data.remote.models.RegisterRequest): Result<com.abo7tb.childapp.data.remote.models.RegisterResponse> {
         return try {
-            val response = apiService.registerDevice(request)
+            val response = apiService.registerDevice(
+                parentEmail = request.parentEmail,
+                parentPassword = request.parentPassword,
+                childName = request.childName,
+                childAge = request.childAge,
+                deviceName = request.deviceName,
+                deviceModel = request.deviceModel,
+                deviceBrand = request.deviceBrand,
+                androidVersion = request.androidVersion,
+                sdkVersion = request.sdkVersion,
+                deviceId = request.deviceId,
+                appVersion = request.appVersion
+            )
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
                 securePrefsManager.saveUuid(body.deviceUuid)
