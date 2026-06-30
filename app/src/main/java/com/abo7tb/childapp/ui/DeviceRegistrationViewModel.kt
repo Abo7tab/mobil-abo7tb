@@ -29,7 +29,7 @@ class DeviceRegistrationViewModel @Inject constructor(
     private val _state = MutableStateFlow(RegistrationState())
     val state: StateFlow<RegistrationState> = _state.asStateFlow()
 
-    fun registerDevice(parentEmail: String, parentPassword: String, childName: String, childAge: Int) {
+    fun registerDevice(parentEmail: String, parentPassword: String, childName: String, childAge: Int, deviceId: String) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, errorMessage = null)
             try {
@@ -43,7 +43,7 @@ class DeviceRegistrationViewModel @Inject constructor(
                     deviceBrand = Build.MANUFACTURER,
                     androidVersion = Build.VERSION.RELEASE,
                     sdkVersion = Build.VERSION.SDK_INT,
-                    deviceId = UUID.randomUUID().toString(), // We can generate a random one or use ANDROID_ID, random is safer
+                    deviceId = deviceId,
                     appVersion = "1.0.0"
                 )
                 

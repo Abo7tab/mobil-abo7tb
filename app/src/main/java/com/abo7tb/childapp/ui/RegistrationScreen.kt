@@ -66,7 +66,8 @@ fun RegistrationScreen(
             4 -> AuthView(
                 state = state,
                 onRegister = { email, password, childName, childAge ->
-                    viewModel.registerDevice(email, password, childName, childAge)
+                    val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+                    viewModel.registerDevice(email, password, childName, childAge, androidId)
                 }
             )
             5 -> SetupCompleteView(onComplete = onRegisterSuccess)
