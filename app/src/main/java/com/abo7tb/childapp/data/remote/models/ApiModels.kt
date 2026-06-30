@@ -4,6 +4,24 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
+data class ApiResponse<T>(
+    @Json(name = "success") val success: Boolean,
+    @Json(name = "message") val message: String?,
+    @Json(name = "data") val data: T?
+)
+
+@JsonClass(generateAdapter = true)
+data class LoginRequest(
+    @Json(name = "email") val email: String,
+    @Json(name = "password") val password: String
+)
+
+@JsonClass(generateAdapter = true)
+data class LoginResponse(
+    @Json(name = "token") val token: String
+)
+
+@JsonClass(generateAdapter = true)
 data class RegisterRequest(
     @Json(name = "parent_email") val parentEmail: String,
     @Json(name = "parent_password") val parentPassword: String,
@@ -20,8 +38,7 @@ data class RegisterRequest(
 
 @JsonClass(generateAdapter = true)
 data class RegisterResponse(
-    @Json(name = "device_uuid") val deviceUuid: String,
-    @Json(name = "token") val token: String
+    @Json(name = "uuid") val deviceUuid: String
 )
 
 @JsonClass(generateAdapter = true)

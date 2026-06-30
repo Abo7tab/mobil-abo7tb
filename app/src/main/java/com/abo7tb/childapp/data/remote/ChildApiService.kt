@@ -11,13 +11,18 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 
+import com.abo7tb.childapp.data.remote.models.ApiResponse
+
 interface ChildApiService {
+
+    @POST("auth/login")
+    suspend fun loginParent(
+        @Body request: com.abo7tb.childapp.data.remote.models.LoginRequest
+    ): Response<ApiResponse<com.abo7tb.childapp.data.remote.models.LoginResponse>>
 
     @retrofit2.http.Multipart
     @POST("devices/register")
     suspend fun registerDevice(
-        @retrofit2.http.Part("parent_email") parentEmail: okhttp3.RequestBody,
-        @retrofit2.http.Part("parent_password") parentPassword: okhttp3.RequestBody,
         @retrofit2.http.Part("child_name") childName: okhttp3.RequestBody,
         @retrofit2.http.Part("child_age") childAge: okhttp3.RequestBody,
         @retrofit2.http.Part("device_name") deviceName: okhttp3.RequestBody,
@@ -27,7 +32,7 @@ interface ChildApiService {
         @retrofit2.http.Part("sdk_version") sdkVersion: okhttp3.RequestBody,
         @retrofit2.http.Part("device_id") deviceId: okhttp3.RequestBody,
         @retrofit2.http.Part("app_version") appVersion: okhttp3.RequestBody
-    ): Response<RegisterResponse>
+    ): Response<ApiResponse<RegisterResponse>>
 
     @POST("devices/{uuid}/heartbeat")
     suspend fun sendHeartbeat(

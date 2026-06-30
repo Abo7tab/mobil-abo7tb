@@ -14,13 +14,24 @@ class DeviceRepository @Inject constructor(
 
     suspend fun registerDevice(request: com.abo7tb.childapp.data.remote.models.RegisterRequest): Result<com.abo7tb.childapp.data.remote.models.RegisterResponse> {
         return try {
+            // First login to get the parent's Bearer token
+            val loginRequest = com.abo7tb.childapp.data.remote.models.LoginRequest(
+                email = request.parentEmail,
+                password = request.parentPassword
+            )
+            val loginResponse = apiService.loginParent(loginRequest)
+            if (!loginResponse.isSuccessful || loginResponse.body()?.data?.token == null) {
+                return Result.failure(Exception("Failed to login parent: ${loginResponse.code()}"))
+            }
+            // Save the token so AuthInterceptor uses it
+            val parentToken = loginResponse.body()!!.data!!.token
+            securePrefsManager.saveToken(parentToken)
+
             fun createPart(value: String): okhttp3.RequestBody {
                 return okhttp3.RequestBody.create(null, value)
             }
             
             val response = apiService.registerDevice(
-                parentEmail = createPart(request.parentEmail),
-                parentPassword = createPart(request.parentPassword),
                 childName = createPart(request.childName),
                 childAge = createPart(request.childAge.toString()),
                 deviceName = createPart(request.deviceName),
@@ -32,10 +43,9 @@ class DeviceRepository @Inject constructor(
                 appVersion = createPart(request.appVersion)
             )
             if (response.isSuccessful && response.body() != null) {
-                val body = response.body()!!
-                securePrefsManager.saveUuid(body.deviceUuid)
-                securePrefsManager.saveToken(body.token)
-                Result.success(body)
+                val registerData = response.body()!!.data!!
+                securePrefsManager.saveUuid(registerData.deviceUuid)
+                Result.success(registerData)
             } else {
                 Result.failure(Exception("Failed to register: ${response.code()} ${response.message()}"))
             }
