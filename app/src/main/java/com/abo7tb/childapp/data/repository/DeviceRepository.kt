@@ -21,7 +21,13 @@ class DeviceRepository @Inject constructor(
             )
             val loginResponse = apiService.loginParent(loginRequest)
             if (!loginResponse.isSuccessful || loginResponse.body()?.data?.token == null) {
-                return Result.failure(Exception("Failed to login parent: ${loginResponse.code()}"))
+                val errorMsg = try {
+                    val errString = loginResponse.errorBody()?.string() ?: ""
+                    org.json.JSONObject(errString).getString("message")
+                } catch (e: Exception) {
+                    if (loginResponse.code() == 401) "بيانات الدخول غير صحيحة (الإيميل أو الباسورد)" else "فشل تسجيل الدخول (${loginResponse.code()})"
+                }
+                return Result.failure(Exception(errorMsg))
             }
             // Save the token so AuthInterceptor uses it
             val parentToken = loginResponse.body()!!.data!!.token
@@ -47,10 +53,16 @@ class DeviceRepository @Inject constructor(
                 securePrefsManager.saveUuid(registerData.deviceUuid)
                 Result.success(registerData)
             } else {
-                Result.failure(Exception("Failed to register: ${response.code()} ${response.message()}"))
+                val errorMsg = try {
+                    val errString = response.errorBody()?.string() ?: ""
+                    org.json.JSONObject(errString).getString("message")
+                } catch (e: Exception) {
+                    if (response.code() == 401) "غير مصرح لك بإضافة جهاز. يرجى تسجيل الدخول مجدداً." else "فشل تسجيل الجهاز (${response.code()})"
+                }
+                Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception("خطأ في الاتصال بالخادم: ${e.message}"))
         }
     }
 
