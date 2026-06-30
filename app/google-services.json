@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "648557361074",
+    "project_id": "family-guard-256bf",
+    "storage_bucket": "family-guard-256bf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:648557361074:android:6fcc941c568acd280796ab",
+        "android_client_info": {
+          "package_name": "com.abo7tb.childapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPuK8QwukaZua5nkTFLJADdtC-N_RYd1k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

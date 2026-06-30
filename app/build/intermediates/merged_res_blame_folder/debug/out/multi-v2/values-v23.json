@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.abo7tb.childapp-mergeDebugResources-67:/values-v23/values-v23.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\moham\\.gradle\\caches\\transforms-3\\174743a02cd56eea0d190dac4fa8c0f7\\transformed\\work-runtime-2.9.1\\res\\values-v23\\values-v23.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,121",
+                        "endColumns": "65,62",
+                        "endOffsets": "116,179"
+                    }
+                }
+            ]
+        }
+    ]
+}
