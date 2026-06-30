@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resumeWithException
 
 @Singleton
 class IntruderCaptureManager @Inject constructor(

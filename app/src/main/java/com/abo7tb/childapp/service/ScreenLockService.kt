@@ -2,22 +2,14 @@ package com.abo7tb.childapp.service
 
 import android.app.Service
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.IBinder
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import android.widget.LinearLayout
+import android.widget.TextView
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -72,15 +64,7 @@ class ScreenLockService : Service() {
                     or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
         }
 
-        // Create ComposeView programmatically
-        lockView = ComposeView(this).apply {
-            setViewTreeLifecycleOwner()
-            setViewTreeSavedStateRegistryOwner()
-            setViewTreeViewModelStoreOwner()
-            setContent {
-                LockScreenContent(message = lockMessage)
-            }
-        }
+        lockView = createLockView(lockMessage)
 
         try {
             windowManager?.addView(lockView, params)
@@ -89,40 +73,49 @@ class ScreenLockService : Service() {
         }
     }
 
-    private fun ComposeView.setViewTreeLifecycleOwner() {
-        val lifecycleOwner = object : androidx.lifecycle.LifecycleOwner {
-            private val lifecycleRegistry = androidx.lifecycle.LifecycleRegistry(this)
-            init {
-                lifecycleRegistry.currentState = androidx.lifecycle.Lifecycle.State.RESUMED
-            }
-            override val lifecycle: androidx.lifecycle.Lifecycle get() = lifecycleRegistry
+    private fun createLockView(message: String): View {
+        val context = this
+        val linearLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.BLACK)
+            setPadding(64, 64, 64, 64)
         }
-        androidx.lifecycle.setViewTreeLifecycleOwner(this, lifecycleOwner)
-    }
 
-    private fun ComposeView.setViewTreeSavedStateRegistryOwner() {
-        val savedStateRegistryOwner = object : androidx.savedstate.SavedStateRegistryOwner {
-            private val savedStateRegistryController = androidx.savedstate.SavedStateRegistryController.create(this)
-            init {
-                savedStateRegistryController.performRestore(null)
-            }
-            override val savedStateRegistry: androidx.savedstate.SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
-            override val lifecycle: androidx.lifecycle.Lifecycle get() = object : androidx.lifecycle.LifecycleOwner {
-                private val lifecycleRegistry = androidx.lifecycle.LifecycleRegistry(this).apply {
-                    currentState = androidx.lifecycle.Lifecycle.State.RESUMED
-                }
-                override val lifecycle: androidx.lifecycle.Lifecycle get() = lifecycleRegistry
-            }.lifecycle
+        val iconText = TextView(context).apply {
+            text = "🔒"
+            textSize = 80f
+            gravity = Gravity.CENTER
         }
-        androidx.savedstate.setViewTreeSavedStateRegistryOwner(this, savedStateRegistryOwner)
-    }
+        linearLayout.addView(iconText)
 
-    private fun ComposeView.setViewTreeViewModelStoreOwner() {
-        val viewModelStoreOwner = object : androidx.lifecycle.ViewModelStoreOwner {
-            private val store = androidx.lifecycle.ViewModelStore()
-            override val viewModelStore: androidx.lifecycle.ViewModelStore get() = store
+        val titleText = TextView(context).apply {
+            text = "الجهاز مقفول"
+            textSize = 28f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(0, 64, 0, 32)
         }
-        androidx.lifecycle.setViewTreeViewModelStoreOwner(this, viewModelStoreOwner)
+        linearLayout.addView(titleText)
+
+        val messageText = TextView(context).apply {
+            text = message
+            textSize = 18f
+            setTextColor(Color.LTGRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 64)
+        }
+        linearLayout.addView(messageText)
+
+        val footerText = TextView(context).apply {
+            text = "يرجى التواصل مع ولي الأمر"
+            textSize = 14f
+            setTextColor(Color.GRAY)
+            gravity = Gravity.CENTER
+        }
+        linearLayout.addView(footerText)
+
+        return linearLayout
     }
 
     private fun hideLockScreen() {
@@ -139,53 +132,5 @@ class ScreenLockService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         hideLockScreen()
-    }
-}
-
-@Composable
-fun LockScreenContent(message: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ComposeColor.Black),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Text(
-                text = "🔒",
-                fontSize = 80.sp,
-                color = ComposeColor.White
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            Text(
-                text = "الجهاز مقفول",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = ComposeColor.White
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = message,
-                fontSize = 18.sp,
-                color = ComposeColor.Gray,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            Text(
-                text = "يرجى التواصل مع ولي الأمر",
-                fontSize = 14.sp,
-                color = ComposeColor.Gray
-            )
-        }
     }
 }
