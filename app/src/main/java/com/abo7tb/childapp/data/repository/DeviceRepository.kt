@@ -12,6 +12,22 @@ class DeviceRepository @Inject constructor(
     private val securePrefsManager: SecurePrefsManager
 ) {
 
+    suspend fun registerDevice(request: com.abo7tb.childapp.data.remote.models.RegisterRequest): Result<com.abo7tb.childapp.data.remote.models.RegisterResponse> {
+        return try {
+            val response = apiService.registerDevice(request)
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                securePrefsManager.saveUuid(body.deviceUuid)
+                securePrefsManager.saveToken(body.token)
+                Result.success(body)
+            } else {
+                Result.failure(Exception("Failed to register: ${response.code()} ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun updateFcmToken(token: String): Result<Unit> {
         return try {
             val deviceUuid = securePrefsManager.getUuid()

