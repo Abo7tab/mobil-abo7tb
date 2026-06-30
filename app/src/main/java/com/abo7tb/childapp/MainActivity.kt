@@ -12,6 +12,9 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @javax.inject.Inject
+    lateinit var securePrefsManager: com.abo7tb.childapp.data.local.SecurePrefsManager
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -27,7 +30,34 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Text(text = "Family Guard - Child App")
+                    val navController = androidx.navigation.compose.rememberNavController()
+                    val startDestination = if (securePrefsManager.getUuid() != null) {
+                        "verify_parent"
+                    } else {
+                        "registration"
+                    }
+
+                    androidx.navigation.compose.NavHost(
+                        navController = navController,
+                        startDestination = startDestination
+                    ) {
+                        androidx.navigation.compose.composable("registration") {
+                            com.abo7tb.childapp.ui.RegistrationScreen(
+                                onRegisterSuccess = {
+                                    navController.navigate("verify_parent") {
+                                        popUpTo("registration") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+                        androidx.navigation.compose.composable("verify_parent") {
+                            com.abo7tb.childapp.presentation.verify.VerifyParentScreen(
+                                onSuccess = {
+                                    finish() // Close or hide the app after verification for stealth
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
