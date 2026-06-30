@@ -99,15 +99,28 @@ fun PermissionsView(onNext: () -> Unit) {
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
 
     val permissionsState = rememberMultiplePermissionsState(
-        permissions = listOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.READ_CONTACTS,
-            Manifest.permission.READ_CALL_LOG,
-            Manifest.permission.READ_SMS,
-            Manifest.permission.CAMERA
-        )
+        permissions = buildList {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            add(Manifest.permission.READ_CONTACTS)
+            add(Manifest.permission.READ_CALL_LOG)
+            add(Manifest.permission.READ_SMS)
+            add(Manifest.permission.CAMERA)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     )
+
+    var hasBackgroundLocation by remember {
+        mutableStateOf(
+            android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
 
     var isBatteryExempted by remember { mutableStateOf(false) }
     var hasOverlayPermission by remember { mutableStateOf(false) }
@@ -118,6 +131,11 @@ fun PermissionsView(onNext: () -> Unit) {
                 val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
                 isBatteryExempted = powerManager.isIgnoringBatteryOptimizations(context.packageName)
                 hasOverlayPermission = Settings.canDrawOverlays(context)
+                hasBackgroundLocation = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
+                    androidx.core.content.ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -132,7 +150,10 @@ fun PermissionsView(onNext: () -> Unit) {
         hasOverlayPermission = Settings.canDrawOverlays(context)
     }
 
-    val allGranted = permissionsState.allPermissionsGranted && isBatteryExempted && hasOverlayPermission
+    val allGranted = permissionsState.allPermissionsGranted &&
+        isBatteryExempted &&
+        hasOverlayPermission &&
+        hasBackgroundLocation
 
     Column(
         modifier = Modifier.padding(24.dp).fillMaxSize(), 
@@ -195,8 +216,35 @@ fun PermissionsView(onNext: () -> Unit) {
             Text(if (hasOverlayPermission) "✅ يظهر فوق جميع التطبيقات" else "3. السماح بظهور شاشة القفل")
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            Button(
+                onClick = {
+                    val intent = Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:${context.packageName}")
+                    )
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !hasBackgroundLocation,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (hasBackgroundLocation) Color.Green else Color(0xFFEAB308),
+                    contentColor = Color.White
+                )
+            ) {
+                Text(
+                    if (hasBackgroundLocation) {
+                        "✅ صلاحية الموقع في الخلفية"
+                    } else {
+                        "4. السماح بالموقع في الخلفية (من الإعدادات)"
+                    }
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         val coroutineScope = rememberCoroutineScope()
         
         Button(

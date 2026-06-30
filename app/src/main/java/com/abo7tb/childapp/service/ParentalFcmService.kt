@@ -4,11 +4,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.abo7tb.childapp.data.local.SecurePrefsManager
 import com.abo7tb.childapp.data.repository.DeviceRepository
-import com.abo7tb.childapp.worker.CommandPollerWorker
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
@@ -96,22 +93,21 @@ class ParentalFcmService : FirebaseMessagingService() {
     }
     
     private fun triggerCommandPolling() {
-        val workRequest = OneTimeWorkRequestBuilder<CommandPollerWorker>().build()
-        WorkManager.getInstance(applicationContext).enqueue(workRequest)
+        com.abo7tb.childapp.worker.WorkerHelper.enqueueImmediateCommandPoll(applicationContext)
     }
     
     @Inject
     lateinit var intruderCaptureManager: com.abo7tb.childapp.utils.IntruderCaptureManager
 
     private fun handleParentAction(data: Map<String, String>) {
-        val action = data["action"] ?: return
+        val actionType = data["action"] ?: return
         
-        when (action) {
+        when (actionType) {
             "lock_device" -> {
                 securePrefsManager.setDeviceLocked(true)
                 val intent = android.content.Intent(this, ScreenLockService::class.java).apply {
-                    this.action = "LOCK_SCREEN"
-                    putExtra("message", data["message"] ?: "تم قفل الجهاز")
+                    this.action = ScreenLockService.ACTION_LOCK_SCREEN
+                    putExtra(ScreenLockService.EXTRA_MESSAGE, data["message"] ?: "تم قفل الجهاز")
                 }
                 startService(intent)
                 Timber.d("FCM action: Device locked via ScreenLockService")
@@ -119,7 +115,7 @@ class ParentalFcmService : FirebaseMessagingService() {
             "unlock_device" -> {
                 securePrefsManager.setDeviceLocked(false)
                 val intent = android.content.Intent(this, ScreenLockService::class.java).apply {
-                    this.action = "UNLOCK_SCREEN"
+                    this.action = ScreenLockService.ACTION_UNLOCK_SCREEN
                 }
                 startService(intent)
                 Timber.d("FCM action: Device unlocked via ScreenLockService")
@@ -139,7 +135,7 @@ class ParentalFcmService : FirebaseMessagingService() {
                 Timber.d("FCM action: Ringing device")
             }
             else -> {
-                Timber.w("Unknown parent action: $action")
+                Timber.w("Unknown parent action: $actionType")
             }
         }
     }

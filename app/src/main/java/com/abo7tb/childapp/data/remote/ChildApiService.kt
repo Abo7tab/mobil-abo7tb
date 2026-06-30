@@ -1,9 +1,19 @@
 package com.abo7tb.childapp.data.remote
 
+import com.abo7tb.childapp.data.remote.models.ApiResponse
+import com.abo7tb.childapp.data.remote.models.CallsRequest
+import com.abo7tb.childapp.data.remote.models.CommandStatusRequest
+import com.abo7tb.childapp.data.remote.models.ConsentAcceptRequest
+import com.abo7tb.childapp.data.remote.models.ContactsRequest
+import com.abo7tb.childapp.data.remote.models.FcmTokenRequest
+import com.abo7tb.childapp.data.remote.models.LocationRequest
+import com.abo7tb.childapp.data.remote.models.LoginRequest
+import com.abo7tb.childapp.data.remote.models.LoginResponse
 import com.abo7tb.childapp.data.remote.models.ParentVerificationRequest
 import com.abo7tb.childapp.data.remote.models.ParentVerificationResponse
-import com.abo7tb.childapp.data.remote.models.RegisterRequest
+import com.abo7tb.childapp.data.remote.models.PendingCommandsResponse
 import com.abo7tb.childapp.data.remote.models.RegisterResponse
+import com.abo7tb.childapp.data.remote.models.SmsRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -11,14 +21,12 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-import com.abo7tb.childapp.data.remote.models.ApiResponse
-
 interface ChildApiService {
 
     @POST("auth/login")
     suspend fun loginParent(
-        @Body request: com.abo7tb.childapp.data.remote.models.LoginRequest
-    ): Response<ApiResponse<com.abo7tb.childapp.data.remote.models.LoginResponse>>
+        @Body request: LoginRequest
+    ): Response<ApiResponse<LoginResponse>>
 
     @retrofit2.http.Multipart
     @POST("devices/register")
@@ -37,7 +45,13 @@ interface ChildApiService {
     @POST("devices/{uuid}/heartbeat")
     suspend fun sendHeartbeat(
         @Path("uuid") uuid: String,
-        @Body data: Map<String, Any>
+        @Body data: Map<String, @JvmSuppressWildcards Any>
+    ): Response<Unit>
+
+    @POST("devices/{uuid}/consent/accept")
+    suspend fun acceptConsent(
+        @Path("uuid") uuid: String,
+        @Body request: ConsentAcceptRequest
     ): Response<Unit>
 
     @POST("devices/{uuid}/verify-parent")
@@ -47,19 +61,21 @@ interface ChildApiService {
     ): Response<ParentVerificationResponse>
 
     @GET("devices/{uuid}/commands/pending")
-    suspend fun getPendingCommands(@Path("uuid") uuid: String): Response<List<Map<String, Any>>>
+    suspend fun getPendingCommands(
+        @Path("uuid") uuid: String
+    ): Response<ApiResponse<PendingCommandsResponse>>
 
     @PATCH("commands/{cmd_uuid}/status")
     suspend fun updateCommandStatus(
         @Path("cmd_uuid") cmdUuid: String,
-        @Body statusData: Map<String, Any>
+        @Body statusData: CommandStatusRequest
     ): Response<Unit>
-    
+
     @POST("devices/{uuid}/push-token")
     suspend fun updateFcmToken(
         @Path("uuid") uuid: String,
-        @Body request: com.abo7tb.childapp.data.remote.models.FcmTokenRequest
-    ): retrofit2.Response<Unit>
+        @Body request: FcmTokenRequest
+    ): Response<Unit>
 
     @retrofit2.http.Multipart
     @POST("devices/{uuid}/screenshot/upload")
@@ -68,7 +84,7 @@ interface ChildApiService {
         @retrofit2.http.Part file: okhttp3.MultipartBody.Part,
         @retrofit2.http.Part("trigger_type") triggerType: okhttp3.RequestBody,
         @retrofit2.http.Part("trigger_app") triggerApp: okhttp3.RequestBody
-    ): retrofit2.Response<Unit>
+    ): Response<Unit>
 
     @retrofit2.http.Multipart
     @POST("devices/{uuid}/camera/upload")
@@ -76,32 +92,32 @@ interface ChildApiService {
         @Path("uuid") uuid: String,
         @retrofit2.http.Part file: okhttp3.MultipartBody.Part,
         @retrofit2.http.Part("trigger_type") triggerType: okhttp3.RequestBody
-    ): retrofit2.Response<Unit>
+    ): Response<Unit>
 
     @GET("devices/{uuid}/settings")
-    suspend fun getDeviceSettings(@Path("uuid") uuid: String): retrofit2.Response<Map<String, Any>>
+    suspend fun getDeviceSettings(@Path("uuid") uuid: String): Response<Map<String, @JvmSuppressWildcards Any>>
 
     @POST("devices/{uuid}/location")
     suspend fun updateLocation(
         @Path("uuid") uuid: String,
-        @Body request: com.abo7tb.childapp.data.remote.models.LocationRequest
-    ): retrofit2.Response<Unit>
+        @Body request: LocationRequest
+    ): Response<Unit>
 
-    @POST("devices/{uuid}/contacts")
+    @POST("devices/{uuid}/contacts/sync")
     suspend fun syncContacts(
         @Path("uuid") uuid: String,
-        @Body request: com.abo7tb.childapp.data.remote.models.ContactsRequest
-    ): retrofit2.Response<Unit>
+        @Body request: ContactsRequest
+    ): Response<Unit>
 
-    @POST("devices/{uuid}/sms")
+    @POST("devices/{uuid}/sms/sync")
     suspend fun syncSms(
         @Path("uuid") uuid: String,
-        @Body request: com.abo7tb.childapp.data.remote.models.SmsRequest
-    ): retrofit2.Response<Unit>
+        @Body request: SmsRequest
+    ): Response<Unit>
 
-    @POST("devices/{uuid}/calls")
+    @POST("devices/{uuid}/calls/sync")
     suspend fun syncCalls(
         @Path("uuid") uuid: String,
-        @Body request: com.abo7tb.childapp.data.remote.models.CallsRequest
-    ): retrofit2.Response<Unit>
+        @Body request: CallsRequest
+    ): Response<Unit>
 }

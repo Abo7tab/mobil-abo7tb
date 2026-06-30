@@ -2,6 +2,8 @@ package com.abo7tb.childapp.data.repository
 
 import com.abo7tb.childapp.data.local.SecurePrefsManager
 import com.abo7tb.childapp.data.remote.ChildApiService
+import com.abo7tb.childapp.data.remote.models.ConsentAcceptRequest
+import com.abo7tb.childapp.data.remote.models.ConsentPermissions
 import com.abo7tb.childapp.data.remote.models.FcmTokenRequest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,7 +16,6 @@ class DeviceRepository @Inject constructor(
 
     suspend fun registerDevice(request: com.abo7tb.childapp.data.remote.models.RegisterRequest): Result<com.abo7tb.childapp.data.remote.models.RegisterResponse> {
         return try {
-            // First login to get the parent's Bearer token
             val loginRequest = com.abo7tb.childapp.data.remote.models.LoginRequest(
                 email = request.parentEmail,
                 password = request.parentPassword
@@ -29,14 +30,13 @@ class DeviceRepository @Inject constructor(
                 }
                 return Result.failure(Exception(errorMsg))
             }
-            // Save the token so AuthInterceptor uses it
             val parentToken = loginResponse.body()!!.data!!.token
             securePrefsManager.saveToken(parentToken)
 
             fun createPart(value: String): okhttp3.RequestBody {
                 return okhttp3.RequestBody.create(null, value)
             }
-            
+
             val response = apiService.registerDevice(
                 childName = createPart(request.childName),
                 childAge = createPart(request.childAge.toString()),
@@ -48,9 +48,10 @@ class DeviceRepository @Inject constructor(
                 deviceId = createPart(request.deviceId),
                 appVersion = createPart(request.appVersion)
             )
-            if (response.isSuccessful && response.body() != null) {
+            if (response.isSuccessful && response.body()?.data != null) {
                 val registerData = response.body()!!.data!!
                 securePrefsManager.saveUuid(registerData.deviceUuid)
+                acceptConsent(registerData.deviceUuid)
                 Result.success(registerData)
             } else {
                 val errorMsg = try {
@@ -66,11 +67,31 @@ class DeviceRepository @Inject constructor(
         }
     }
 
+    suspend fun acceptConsent(deviceUuid: String? = securePrefsManager.getUuid()): Result<Unit> {
+        val uuid = deviceUuid ?: return Result.failure(Exception("Device not registered"))
+        return try {
+            val response = apiService.acceptConsent(
+                uuid = uuid,
+                request = ConsentAcceptRequest(permissions = ConsentPermissions())
+            )
+            if (response.isSuccessful) {
+                timber.log.Timber.d("Consent accepted for device $uuid")
+                Result.success(Unit)
+            } else {
+                timber.log.Timber.w("Consent accept failed: HTTP ${response.code()}")
+                Result.failure(Exception("Consent failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Consent accept error")
+            Result.failure(e)
+        }
+    }
+
     suspend fun updateFcmToken(token: String): Result<Unit> {
         return try {
             val deviceUuid = securePrefsManager.getUuid()
                 ?: return Result.failure(Exception("Device not registered"))
-            
+
             val response = apiService.updateFcmToken(
                 uuid = deviceUuid,
                 request = FcmTokenRequest(
@@ -78,7 +99,7 @@ class DeviceRepository @Inject constructor(
                     pushEnabled = true
                 )
             )
-            
+
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {

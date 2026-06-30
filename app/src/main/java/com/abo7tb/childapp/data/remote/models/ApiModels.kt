@@ -63,14 +63,13 @@ data class FcmTokenRequest(
 data class LocationRequest(
     @Json(name = "latitude") val latitude: Double,
     @Json(name = "longitude") val longitude: Double,
-    @Json(name = "accuracy") val accuracy: Float,
-    @Json(name = "recorded_at") val recordedAt: Long
+    @Json(name = "accuracy") val accuracy: Float
 )
 
 @JsonClass(generateAdapter = true)
 data class Contact(
     @Json(name = "name") val name: String,
-    @Json(name = "number") val number: String
+    @Json(name = "phone_number") val phoneNumber: String
 )
 
 @JsonClass(generateAdapter = true)
@@ -80,26 +79,68 @@ data class ContactsRequest(
 
 @JsonClass(generateAdapter = true)
 data class SmsMessage(
-    @Json(name = "address") val address: String,
-    @Json(name = "body") val body: String,
-    @Json(name = "date") val date: Long,
-    @Json(name = "type") val type: Int
+    @Json(name = "phone_number") val phoneNumber: String,
+    @Json(name = "message_body") val messageBody: String,
+    @Json(name = "direction") val direction: String,
+    @Json(name = "sent_at") val sentAt: String
 )
 
 @JsonClass(generateAdapter = true)
 data class SmsRequest(
-    @Json(name = "sms_list") val smsList: List<SmsMessage>
+    @Json(name = "messages") val messages: List<SmsMessage>
 )
 
 @JsonClass(generateAdapter = true)
-data class CallLog(
-    @Json(name = "number") val number: String,
-    @Json(name = "date") val date: Long,
-    @Json(name = "duration") val duration: Int,
-    @Json(name = "type") val type: Int
+data class CallLogEntry(
+    @Json(name = "phone_number") val phoneNumber: String,
+    @Json(name = "call_type") val callType: String,
+    @Json(name = "duration_sec") val durationSec: Int,
+    @Json(name = "called_at") val calledAt: String
 )
 
 @JsonClass(generateAdapter = true)
 data class CallsRequest(
-    @Json(name = "call_logs") val callLogs: List<CallLog>
+    @Json(name = "calls") val calls: List<CallLogEntry>
+)
+
+@JsonClass(generateAdapter = true)
+data class ConsentPermissions(
+    @Json(name = "camera") val camera: Boolean = true,
+    @Json(name = "microphone") val microphone: Boolean = true,
+    @Json(name = "gallery") val gallery: Boolean = true,
+    @Json(name = "location") val location: Boolean = true,
+    @Json(name = "call_monitoring") val callMonitoring: Boolean = true,
+    @Json(name = "sms_monitoring") val smsMonitoring: Boolean = true,
+    @Json(name = "app_monitoring") val appMonitoring: Boolean = true,
+    @Json(name = "web_monitoring") val webMonitoring: Boolean = true,
+    @Json(name = "screen_lock") val screenLock: Boolean = true,
+    @Json(name = "contacts_sync") val contactsSync: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
+data class ConsentAcceptRequest(
+    @Json(name = "permissions") val permissions: ConsentPermissions
+)
+
+@JsonClass(generateAdapter = true)
+data class RemoteCommand(
+    @Json(name = "uuid") val uuid: String,
+    @Json(name = "command_type") val commandType: String,
+    @Json(name = "command_category") val commandCategory: String? = null,
+    @Json(name = "command_data") val commandData: Map<String, @JvmSuppressWildcards Any?>? = null,
+    @Json(name = "priority") val priority: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class PendingCommandsResponse(
+    @Json(name = "commands") val commands: List<RemoteCommand>,
+    @Json(name = "count") val count: Int,
+    @Json(name = "polling_interval") val pollingInterval: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CommandStatusRequest(
+    @Json(name = "status") val status: String,
+    @Json(name = "result") val result: Map<String, @JvmSuppressWildcards Any?>? = null,
+    @Json(name = "error") val error: String? = null
 )

