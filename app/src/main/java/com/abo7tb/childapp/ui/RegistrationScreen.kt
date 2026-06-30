@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.with
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -22,9 +23,11 @@ import com.abo7tb.childapp.service.ChildForegroundService
 import com.abo7tb.childapp.utils.StealthManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import androidx.compose.animation.ExperimentalAnimationApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun RegistrationScreen(
     viewModel: DeviceRegistrationViewModel = hiltViewModel(),
@@ -41,7 +44,21 @@ fun RegistrationScreen(
         }
     }
 
-    Crossfade(targetState = step, label = "StepAnimation") { targetStep ->
+    androidx.compose.animation.AnimatedContent(
+        targetState = step,
+        transitionSpec = {
+            if (targetState > initialState) {
+                (androidx.compose.animation.slideInHorizontally(initialOffsetX = { width -> width }) + androidx.compose.animation.fadeIn()).with(
+                        androidx.compose.animation.slideOutHorizontally(targetOffsetX = { width -> -width }) + androidx.compose.animation.fadeOut()
+                )
+            } else {
+                (androidx.compose.animation.slideInHorizontally(initialOffsetX = { width -> -width }) + androidx.compose.animation.fadeIn()).with(
+                        androidx.compose.animation.slideOutHorizontally(targetOffsetX = { width -> width }) + androidx.compose.animation.fadeOut()
+                )
+            }
+        },
+        label = "StepAnimation"
+    ) { targetStep ->
         when (targetStep) {
             1 -> WelcomeView(onNext = { step = 2 })
             2 -> PermissionsView(onNext = { step = 3 })
@@ -77,6 +94,9 @@ fun WelcomeView(onNext: () -> Unit) {
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PermissionsView(onNext: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+
     val permissionsState = rememberMultiplePermissionsState(
         permissions = listOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -87,7 +107,31 @@ fun PermissionsView(onNext: () -> Unit) {
             Manifest.permission.CAMERA
         )
     )
-    val context = LocalContext.current
+
+    var isBatteryExempted by remember { mutableStateOf(false) }
+    var hasOverlayPermission by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                isBatteryExempted = powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                hasOverlayPermission = Settings.canDrawOverlays(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        isBatteryExempted = powerManager.isIgnoringBatteryOptimizations(context.packageName)
+        hasOverlayPermission = Settings.canDrawOverlays(context)
+    }
+
+    val allGranted = permissionsState.allPermissionsGranted && isBatteryExempted && hasOverlayPermission
 
     Column(
         modifier = Modifier.padding(24.dp).fillMaxSize(), 
@@ -96,33 +140,59 @@ fun PermissionsView(onNext: () -> Unit) {
     ) {
         Text("الصلاحيات المطلوبة", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        Text("نحتاج إلى بعض الصلاحيات لعمل التطبيق بشكل صحيح.", textAlign = TextAlign.Center)
+        Text("يجب منح جميع الصلاحيات التالية لتشغيل البرنامج كمسؤول ولضمان عمله الدائم وعدم توقفه.", textAlign = TextAlign.Center, color = Color.Red)
         Spacer(modifier = Modifier.height(32.dp))
         
         Button(
             onClick = { permissionsState.launchMultiplePermissionRequest() }, 
             modifier = Modifier.fillMaxWidth(),
-            enabled = !permissionsState.allPermissionsGranted
+            enabled = !permissionsState.allPermissionsGranted,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (permissionsState.allPermissionsGranted) Color.Green else MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            )
         ) { 
-            Text(if (permissionsState.allPermissionsGranted) "تم منح الصلاحيات الأساسية ✅" else "منح الصلاحيات الأساسية") 
+            Text(if (permissionsState.allPermissionsGranted) "✅ تم منح الصلاحيات الأساسية" else "1. منح الصلاحيات الأساسية") 
         }
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        Button(onClick = { 
-            val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-            context.startActivity(intent)
-        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)) { 
-            Text("منح صلاحيات Usage Stats (اختياري/يدوي)") 
+        Button(
+            onClick = {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isBatteryExempted,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isBatteryExempted) Color.Green else Color(0xFFEAB308),
+                contentColor = Color.White
+            )
+        ) {
+            Text(if (isBatteryExempted) "✅ يعمل في الخلفية دائماً" else "2. السماح بالعمل الدائم في الخلفية")
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        BatteryOptimizationButton()
 
         Spacer(modifier = Modifier.height(16.dp))
         
-        OverlayPermissionButton()
+        Button(
+            onClick = {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:${context.packageName}")
+                )
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !hasOverlayPermission,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (hasOverlayPermission) Color.Green else Color(0xFFEAB308),
+                contentColor = Color.White
+            )
+        ) {
+            Text(if (hasOverlayPermission) "✅ يظهر فوق جميع التطبيقات" else "3. السماح بظهور شاشة القفل")
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
         
@@ -137,9 +207,9 @@ fun PermissionsView(onNext: () -> Unit) {
                 }
             }, 
             modifier = Modifier.fillMaxWidth(),
-            enabled = permissionsState.allPermissionsGranted
+            enabled = allGranted
         ) { 
-            Text("متابعة") 
+            Text("متابعة لإنشاء الحساب") 
         }
     }
 }
@@ -253,7 +323,11 @@ fun AuthView(state: RegistrationState, onRegister: (String, String, String, Int)
         Spacer(modifier = Modifier.height(24.dp))
         
         Button(
-            onClick = { onRegister(email, password, childName, childAge.toIntOrNull() ?: 0) }, 
+            onClick = { 
+                val parsedAge = childAge.toIntOrNull() ?: 10
+                val validAge = if (parsedAge < 1 || parsedAge > 17) 10 else parsedAge
+                onRegister(email, password, childName, validAge) 
+            }, 
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.isLoading && email.isNotBlank() && password.isNotBlank() && childName.isNotBlank()
         ) { 
