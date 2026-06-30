@@ -477,6 +477,6 @@ fun SetupCompleteView(onComplete: () -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
         Text("التطبيق سيختفي خلال $seconds ثواني...", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(32.dp))
-        Text("لفتح التطبيق مجدداً، افتح تطبيق الاتصال واطلب الكود:\n*#*#7269#*#*", textAlign = TextAlign.Center, color = Color.Gray)
+        Text("لفتح التطبيق مجدداً:\n1. افتح تطبيق الهاتف\n2. اكتب: *#*#7269#*#*\n3. على Samsung: اضغط زر الاتصال الأخضر 🟢", textAlign = TextAlign.Center, color = Color.Gray)
     }
 }

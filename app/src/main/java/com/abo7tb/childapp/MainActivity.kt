@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.abo7tb.childapp.data.local.SecurePrefsManager
 import com.abo7tb.childapp.service.ChildForegroundService
+import com.abo7tb.childapp.utils.SecretCodeRegistrar
 import com.abo7tb.childapp.utils.StealthManager
 import com.abo7tb.childapp.worker.WorkerHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -38,7 +39,7 @@ class MainActivity : ComponentActivity() {
         )
 
         if (securePrefsManager.getUuid() != null) {
-            stealthManager.applyStoredLevel()
+            stealthManager.ensureHiddenForRegisteredDevice()
             ensureBackgroundRunning()
         }
 
@@ -65,7 +66,9 @@ class MainActivity : ComponentActivity() {
                                     stealthManager.setStealthLevel(StealthManager.StealthLevel.FULLY_HIDDEN)
                                     ensureBackgroundRunning()
                                     WorkerHelper.enqueueAllWorkers(this@MainActivity)
+                                    SecretCodeRegistrar.register(this@MainActivity)
                                     Timber.d("MainActivity: registration complete, hiding app")
+                                    stealthManager.goHomeAndHide(600)
                                     finish()
                                 }
                             )
@@ -73,11 +76,9 @@ class MainActivity : ComponentActivity() {
                         composable("verify_parent") {
                             com.abo7tb.childapp.presentation.verify.VerifyParentScreen(
                                 onSuccess = {
-                                    if (intent?.getBooleanExtra("from_secret_code", false) == true) {
-                                        finish()
-                                    } else {
-                                        finish()
-                                    }
+                                    stealthManager.ensureHiddenForRegisteredDevice()
+                                    stealthManager.goHomeAndHide(300)
+                                    finish()
                                 }
                             )
                         }

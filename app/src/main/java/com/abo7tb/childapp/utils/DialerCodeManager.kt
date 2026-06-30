@@ -40,11 +40,7 @@ class DialerCodeManager @Inject constructor(
     
     private fun updateLocalCode(newCode: String) {
         securePrefsManager.putString(KEY_DIALER_CODE, newCode)
-        registerSecretCodeReceiver(newCode)
-    }
-    
-    private fun registerSecretCodeReceiver(code: String) {
-        // Implementation for dynamic registration handled globally or checked internally
+        SecretCodeRegistrar.register(context)
     }
     
     fun validateCode(enteredCode: String): Boolean {

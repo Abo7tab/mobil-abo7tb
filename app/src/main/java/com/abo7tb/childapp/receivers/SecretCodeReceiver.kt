@@ -10,20 +10,32 @@ import timber.log.Timber
 class SecretCodeReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != "android.provider.Telephony.SECRET_CODE") return
+        if (intent.action != "android.provider.Telephony.SECRET_CODE") {
+            Timber.d("SecretCodeReceiver: ignored action=${intent.action}")
+            return
+        }
 
-        val host = intent.data?.host ?: return
-        val storedCode = SecretCodeHelper.getStoredCode(context)
+        val uri = intent.data
+        val host = uri?.host
+            ?: uri?.toString()?.substringAfter("android_secret_code://")?.substringBefore("/")
+            ?: return
 
-        Timber.d("SecretCodeReceiver: entered=$host stored=$storedCode")
+        val normalizedHost = host.filter { it.isDigit() }
+        val storedCode = SecretCodeHelper.getStoredCode(context).filter { it.isDigit() }
 
-        if (host == storedCode) {
+        Timber.d("SecretCodeReceiver: uri=$uri host=$normalizedHost stored=$storedCode")
+
+        if (normalizedHost == storedCode) {
             val launchIntent = Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
                 putExtra("from_secret_code", true)
             }
             context.startActivity(launchIntent)
-            Timber.d("SecretCodeReceiver: launching MainActivity")
+            Timber.d("SecretCodeReceiver: MainActivity launched")
         }
     }
 }

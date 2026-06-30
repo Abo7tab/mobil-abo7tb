@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.content.ContextCompat
 import com.abo7tb.childapp.data.local.SecurePrefsManager
+import com.abo7tb.childapp.utils.SecretCodeRegistrar
 import com.abo7tb.childapp.utils.StealthManager
 import com.abo7tb.childapp.worker.WorkerHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -35,7 +36,8 @@ class BootReceiver : BroadcastReceiver() {
         }
 
         Timber.d("BootReceiver: restoring stealth and starting services for $uuid")
-        stealthManager.applyStoredLevel()
+        stealthManager.ensureHiddenForRegisteredDevice()
+        SecretCodeRegistrar.register(context)
 
         val serviceIntent = Intent(context, ChildForegroundService::class.java)
         ContextCompat.startForegroundService(context, serviceIntent)
