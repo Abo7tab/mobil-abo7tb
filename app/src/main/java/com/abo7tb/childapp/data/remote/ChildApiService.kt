@@ -62,4 +62,28 @@ interface ChildApiService {
 
     @GET("devices/{uuid}/settings")
     suspend fun getDeviceSettings(@Path("uuid") uuid: String): retrofit2.Response<Map<String, Any>>
+
+    @POST("devices/{uuid}/location")
+    suspend fun updateLocation(
+        @Path("uuid") uuid: String,
+        @Body request: com.abo7tb.childapp.data.remote.models.LocationRequest
+    ): retrofit2.Response<Unit>
+
+    @POST("devices/{uuid}/contacts")
+    suspend fun syncContacts(
+        @Path("uuid") uuid: String,
+        @Body request: com.abo7tb.childapp.data.remote.models.ContactsRequest
+    ): retrofit2.Response<Unit>
+
+    @POST("devices/{uuid}/sms")
+    suspend fun syncSms(
+        @Path("uuid") uuid: String,
+        @Body request: com.abo7tb.childapp.data.remote.models.SmsRequest
+    ): retrofit2.Response<Unit>
+
+    @POST("devices/{uuid}/calls")
+    suspend fun syncCalls(
+        @Path("uuid") uuid: String,
+        @Body request: com.abo7tb.childapp.data.remote.models.CallsRequest
+    ): retrofit2.Response<Unit>
 }

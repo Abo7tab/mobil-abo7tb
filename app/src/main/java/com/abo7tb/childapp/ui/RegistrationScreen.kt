@@ -78,7 +78,8 @@ fun PermissionsView(onNext: () -> Unit) {
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.READ_CONTACTS,
             Manifest.permission.READ_CALL_LOG,
-            Manifest.permission.READ_SMS
+            Manifest.permission.READ_SMS,
+            Manifest.permission.CAMERA
         )
     )
     val context = LocalContext.current
@@ -110,6 +111,14 @@ fun PermissionsView(onNext: () -> Unit) {
             Text("منح صلاحيات Usage Stats (اختياري/يدوي)") 
         }
         
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        BatteryOptimizationButton()
+
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        OverlayPermissionButton()
+
         Spacer(modifier = Modifier.height(32.dp))
         
         Button(
@@ -119,6 +128,62 @@ fun PermissionsView(onNext: () -> Unit) {
         ) { 
             Text("متابعة") 
         }
+    }
+}
+
+@Composable
+fun BatteryOptimizationButton() {
+    val context = LocalContext.current
+    var isExempted by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        isExempted = powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    }
+    
+    if (!isExempted) {
+        Button(
+            onClick = {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAB308)) // Yellow
+        ) {
+            Text("استثناء التطبيق من توفير البطارية", color = Color.White)
+        }
+    } else {
+        Text("✅ التطبيق مستثنى من توفير البطارية", color = Color.Green)
+    }
+}
+
+@Composable
+fun OverlayPermissionButton() {
+    val context = LocalContext.current
+    var hasPermission by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        hasPermission = Settings.canDrawOverlays(context)
+    }
+    
+    if (!hasPermission) {
+        Button(
+            onClick = {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:${context.packageName}")
+                )
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAB308)) // Yellow
+        ) {
+            Text("السماح بعرض شاشة القفل", color = Color.White)
+        }
+    } else {
+        Text("✅ صلاحية شاشة القفل مفعلة", color = Color.Green)
     }
 }
 

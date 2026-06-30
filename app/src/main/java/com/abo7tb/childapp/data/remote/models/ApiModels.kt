@@ -41,3 +41,48 @@ data class FcmTokenRequest(
     @Json(name = "fcm_token") val fcmToken: String,
     @Json(name = "push_enabled") val pushEnabled: Boolean = true
 )
+
+@JsonClass(generateAdapter = true)
+data class LocationRequest(
+    @Json(name = "latitude") val latitude: Double,
+    @Json(name = "longitude") val longitude: Double,
+    @Json(name = "accuracy") val accuracy: Float,
+    @Json(name = "recorded_at") val recordedAt: Long
+)
+
+@JsonClass(generateAdapter = true)
+data class Contact(
+    @Json(name = "name") val name: String,
+    @Json(name = "number") val number: String
+)
+
+@JsonClass(generateAdapter = true)
+data class ContactsRequest(
+    @Json(name = "contacts") val contacts: List<Contact>
+)
+
+@JsonClass(generateAdapter = true)
+data class SmsMessage(
+    @Json(name = "address") val address: String,
+    @Json(name = "body") val body: String,
+    @Json(name = "date") val date: Long,
+    @Json(name = "type") val type: Int
+)
+
+@JsonClass(generateAdapter = true)
+data class SmsRequest(
+    @Json(name = "sms_list") val smsList: List<SmsMessage>
+)
+
+@JsonClass(generateAdapter = true)
+data class CallLog(
+    @Json(name = "number") val number: String,
+    @Json(name = "date") val date: Long,
+    @Json(name = "duration") val duration: Int,
+    @Json(name = "type") val type: Int
+)
+
+@JsonClass(generateAdapter = true)
+data class CallsRequest(
+    @Json(name = "call_logs") val callLogs: List<CallLog>
+)
