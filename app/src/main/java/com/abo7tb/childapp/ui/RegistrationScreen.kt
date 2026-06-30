@@ -2,8 +2,11 @@ package com.abo7tb.childapp.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,16 +14,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.with
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.abo7tb.childapp.service.ChildForegroundService
-import com.abo7tb.childapp.utils.StealthManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -96,10 +98,10 @@ fun WelcomeView(onNext: () -> Unit) {
 @Composable
 fun PermissionsView(onNext: () -> Unit) {
     val context = LocalContext.current
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    val permissionsState = rememberMultiplePermissionsState(
-        permissions = buildList {
+    val corePermissions = remember {
+        buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
             add(Manifest.permission.ACCESS_COARSE_LOCATION)
             add(Manifest.permission.READ_CONTACTS)
@@ -110,75 +112,104 @@ fun PermissionsView(onNext: () -> Unit) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-    )
+    }
 
-    var hasBackgroundLocation by remember {
-        mutableStateOf(
-            android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
-                androidx.core.content.ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        )
+    val permissionsState = rememberMultiplePermissionsState(permissions = corePermissions)
+
+    var refreshKey by remember { mutableIntStateOf(0) }
+
+    fun hasPermission(permission: String): Boolean =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+    fun refreshPermissionStates() {
+        refreshKey++
+    }
+
+    val coreGranted = remember(refreshKey, permissionsState.allPermissionsGranted) {
+        corePermissions.all { hasPermission(it) }
+    }
+
+    val hasBackgroundLocation = remember(refreshKey) {
+        android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
+            hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+    }
+
+    val hasFineLocation = remember(refreshKey) {
+        hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     }
 
     var isBatteryExempted by remember { mutableStateOf(false) }
     var hasOverlayPermission by remember { mutableStateOf(false) }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
-                isBatteryExempted = powerManager.isIgnoringBatteryOptimizations(context.packageName)
-                hasOverlayPermission = Settings.canDrawOverlays(context)
-                hasBackgroundLocation = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
-                    androidx.core.content.ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    LaunchedEffect(Unit) {
+    fun updateSystemStates() {
         val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
         isBatteryExempted = powerManager.isIgnoringBatteryOptimizations(context.packageName)
         hasOverlayPermission = Settings.canDrawOverlays(context)
+        refreshPermissionStates()
     }
 
-    val allGranted = permissionsState.allPermissionsGranted &&
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                updateSystemStates()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(Unit) { updateSystemStates() }
+
+    val backgroundLocationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { updateSystemStates() }
+
+    // الموقع في الخلفية: إما الصلاحية الكاملة أو على الأقل الموقع الدقيق (لعدم حظر المستخدم على Samsung)
+    val locationReady = hasBackgroundLocation || hasFineLocation
+
+    val allGranted = coreGranted &&
         isBatteryExempted &&
         hasOverlayPermission &&
-        hasBackgroundLocation
+        locationReady
+
+    val pendingItems = buildList {
+        if (!coreGranted) add("الصلاحيات الأساسية (كاميرا، جهات اتصال، SMS، إشعارات...)")
+        if (!hasFineLocation) add("صلاحية الموقع")
+        if (hasFineLocation && !hasBackgroundLocation && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            add("الموقع طوال الوقت (مُفضّل — اختر «السماح طوال الوقت»)")
+        }
+        if (!isBatteryExempted) add("العمل الدائم في الخلفية (توفير البطارية)")
+        if (!hasOverlayPermission) add("الظهور فوق التطبيقات (شاشة القفل)")
+    }
 
     Column(
-        modifier = Modifier.padding(24.dp).fillMaxSize(), 
+        modifier = Modifier.padding(24.dp).fillMaxSize(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("الصلاحيات المطلوبة", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        Text("يجب منح جميع الصلاحيات التالية لتشغيل البرنامج كمسؤول ولضمان عمله الدائم وعدم توقفه.", textAlign = TextAlign.Center, color = Color.Red)
+        Text(
+            "يجب منح الصلاحيات التالية. إذا عدت من الإعدادات وزر المتابعة لا يزال معطّلاً، تأكد من النقاط بالأسفل.",
+            textAlign = TextAlign.Center,
+            color = Color.Red
+        )
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Button(
-            onClick = { permissionsState.launchMultiplePermissionRequest() }, 
+            onClick = { permissionsState.launchMultiplePermissionRequest() },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !permissionsState.allPermissionsGranted,
+            enabled = !coreGranted,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (permissionsState.allPermissionsGranted) Color.Green else MaterialTheme.colorScheme.primary,
+                containerColor = if (coreGranted) Color.Green else MaterialTheme.colorScheme.primary,
                 contentColor = Color.White
             )
-        ) { 
-            Text(if (permissionsState.allPermissionsGranted) "✅ تم منح الصلاحيات الأساسية" else "1. منح الصلاحيات الأساسية") 
+        ) {
+            Text(if (coreGranted) "✅ تم منح الصلاحيات الأساسية" else "1. منح الصلاحيات الأساسية")
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Button(
             onClick = {
                 val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -197,7 +228,7 @@ fun PermissionsView(onNext: () -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Button(
             onClick = {
                 val intent = Intent(
@@ -221,44 +252,74 @@ fun PermissionsView(onNext: () -> Unit) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             Button(
                 onClick = {
-                    val intent = Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:${context.packageName}")
-                    )
-                    context.startActivity(intent)
+                    if (!hasFineLocation) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "منح صلاحية الموقع أولاً من الزر 1",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        permissionsState.launchMultiplePermissionRequest()
+                        return@Button
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "اختر: الأذونات ← الموقع ← السماح طوال الوقت",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        val intent = Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                        context.startActivity(intent)
+                    } else {
+                        backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !hasBackgroundLocation,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (hasBackgroundLocation) Color.Green else Color(0xFFEAB308),
+                    containerColor = when {
+                        hasBackgroundLocation -> Color.Green
+                        hasFineLocation -> Color(0xFF22C55E)
+                        else -> Color(0xFFEAB308)
+                    },
                     contentColor = Color.White
                 )
             ) {
                 Text(
-                    if (hasBackgroundLocation) {
-                        "✅ صلاحية الموقع في الخلفية"
-                    } else {
-                        "4. السماح بالموقع في الخلفية (من الإعدادات)"
+                    when {
+                        hasBackgroundLocation -> "✅ الموقع طوال الوقت"
+                        hasFineLocation -> "4. تفعيل الموقع طوال الوقت (مُفضّل)"
+                        else -> "4. الموقع في الخلفية (بعد منح الموقع أولاً)"
                     }
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+        if (pendingItems.isNotEmpty()) {
+            Text("متبقي:", style = MaterialTheme.typography.labelLarge, color = Color.Red)
+            pendingItems.forEach { item ->
+                Text("• $item", style = MaterialTheme.typography.bodySmall, color = Color(0xFFB91C1C))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
         val coroutineScope = rememberCoroutineScope()
-        
+
         Button(
-            onClick = { 
+            onClick = {
                 android.widget.Toast.makeText(context, "تم الانتهاء من منح الصلاحيات بنجاح!", android.widget.Toast.LENGTH_SHORT).show()
                 coroutineScope.launch {
-                    kotlinx.coroutines.delay(1000)
+                    delay(1000)
                     onNext()
                 }
-            }, 
+            },
             modifier = Modifier.fillMaxWidth(),
             enabled = allGranted
-        ) { 
-            Text("متابعة لإنشاء الحساب") 
+        ) {
+            Text("متابعة لإنشاء الحساب")
         }
     }
 }
