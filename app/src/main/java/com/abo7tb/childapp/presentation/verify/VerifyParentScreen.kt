@@ -2,7 +2,9 @@ package com.abo7tb.childapp.presentation.verify
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,12 +22,21 @@ import kotlinx.coroutines.delay
 @Composable
 fun VerifyParentScreen(
     viewModel: VerifyParentViewModel = hiltViewModel(),
-    onSuccess: () -> Unit
+    onHideApp: () -> Unit,
+    onUninstallApp: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    
+
+    if (state.isVerified) {
+        ParentVerifiedMenu(
+            onHideApp = onHideApp,
+            onUninstallApp = onUninstallApp
+        )
+        return
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center
@@ -36,9 +47,9 @@ fun VerifyParentScreen(
             tint = Color(0xFF6366F1),
             modifier = Modifier.size(80.dp).align(Alignment.CenterHorizontally)
         )
-        
+
         Spacer(Modifier.height(24.dp))
-        
+
         Text(
             "تأكيد هوية ولي الأمر",
             style = MaterialTheme.typography.headlineMedium,
@@ -46,9 +57,17 @@ fun VerifyParentScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        
+
+        Text(
+            "مطلوب لإدارة التطبيق أو حذفه",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = Color.Gray,
+            modifier = Modifier.fillMaxWidth()
+        )
+
         Spacer(Modifier.height(32.dp))
-        
+
         when (val lockStatus = state.lockStatus) {
             is LockStatus.Locked -> {
                 LockedView(
@@ -65,9 +84,9 @@ fun VerifyParentScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !state.isLoading
                 )
-                
+
                 Spacer(Modifier.height(16.dp))
-                
+
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
@@ -77,9 +96,9 @@ fun VerifyParentScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !state.isLoading
                 )
-                
+
                 Spacer(Modifier.height(8.dp))
-                
+
                 if (state.failedAttempts > 0) {
                     val remainingAttempts = 5 - state.failedAttempts
                     Text(
@@ -92,13 +111,11 @@ fun VerifyParentScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                
+
                 Spacer(Modifier.height(24.dp))
-                
+
                 Button(
-                    onClick = {
-                        viewModel.verifyParent(email, password)
-                    },
+                    onClick = { viewModel.verifyParent(email, password) },
                     enabled = !state.isLoading && email.isNotBlank() && password.isNotBlank(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -112,28 +129,69 @@ fun VerifyParentScreen(
                         Text("تأكيد")
                     }
                 }
-                
+
                 state.errorMessage?.let { error ->
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = error,
-                        color = Color.Red,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text(text = error, color = Color.Red, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
-        
+
         LaunchedEffect(state.failedAttempts) {
             if (state.failedAttempts >= 3) {
                 viewModel.triggerIntruderCapture(email)
             }
         }
-        
-        LaunchedEffect(state.isVerified) {
-            if (state.isVerified) {
-                onSuccess()
-            }
+    }
+}
+
+@Composable
+fun ParentVerifiedMenu(
+    onHideApp: () -> Unit,
+    onUninstallApp: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "✅ تم التحقق من ولي الأمر",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF10B981),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            "اختر الإجراء المطلوب. الطفل لا يستطيع حذف التطبيق بدون هذه الخطوة.",
+            textAlign = TextAlign.Center,
+            color = Color.Gray
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        Button(
+            onClick = onHideApp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Home, null)
+            Spacer(Modifier.width(8.dp))
+            Text("إخفاء التطبيق والعودة للرئيسية")
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = onUninstallApp,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red)
+        ) {
+            Icon(Icons.Default.Delete, null, tint = Color.Red)
+            Spacer(Modifier.width(8.dp))
+            Text("إلغاء الحماية وحذف التطبيق", color = Color.Red)
         }
     }
 }
@@ -141,65 +199,31 @@ fun VerifyParentScreen(
 @Composable
 fun LockedView(remainingSeconds: Long, attemptsCount: Int) {
     var seconds by remember { mutableStateOf(remainingSeconds) }
-    
+
     LaunchedEffect(remainingSeconds) {
         while (seconds > 0) {
             delay(1000)
             seconds--
         }
     }
-    
+
     Card(
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFEE2E2)
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                Icons.Default.Lock,
-                null,
-                tint = Color.Red,
-                modifier = Modifier.size(60.dp)
-            )
-            
+            Icon(Icons.Default.Lock, null, tint = Color.Red, modifier = Modifier.size(60.dp))
             Spacer(Modifier.height(16.dp))
-            
-            Text(
-                "🔒 الشاشة مقفولة",
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.Red,
-                fontWeight = FontWeight.Bold
-            )
-            
+            Text("🔒 الشاشة مقفولة", style = MaterialTheme.typography.headlineSmall, color = Color.Red, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
-            
-            Text(
-                "بعد $attemptsCount محاولات فاشلة",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF991B1B)
-            )
-            
+            Text("بعد $attemptsCount محاولات فاشلة", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF991B1B))
             Spacer(Modifier.height(24.dp))
-            
-            Text(
-                text = formatTime(seconds),
-                style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.Red
-            )
-            
-            Text(
-                "ثانية متبقية",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF991B1B)
-            )
-            
+            Text(text = formatTime(seconds), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold, color = Color.Red)
+            Text("ثانية متبقية", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF991B1B))
             Spacer(Modifier.height(16.dp))
-            
             Text(
                 "تم إرسال إشعار لولي الأمر بمحاولات الدخول الفاشلة.",
                 style = MaterialTheme.typography.bodySmall,

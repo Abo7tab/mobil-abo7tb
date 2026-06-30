@@ -21,7 +21,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.animation.with
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import com.abo7tb.childapp.utils.DeviceAdminHelper
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -140,11 +140,13 @@ fun PermissionsView(onNext: () -> Unit) {
 
     var isBatteryExempted by remember { mutableStateOf(false) }
     var hasOverlayPermission by remember { mutableStateOf(false) }
+    var hasDeviceAdmin by remember { mutableStateOf(false) }
 
     fun updateSystemStates() {
         val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
         isBatteryExempted = powerManager.isIgnoringBatteryOptimizations(context.packageName)
         hasOverlayPermission = Settings.canDrawOverlays(context)
+        hasDeviceAdmin = DeviceAdminHelper.isAdminActive(context)
         refreshPermissionStates()
     }
 
@@ -164,13 +166,18 @@ fun PermissionsView(onNext: () -> Unit) {
         ActivityResultContracts.RequestPermission()
     ) { updateSystemStates() }
 
+    val deviceAdminLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { updateSystemStates() }
+
     // الموقع في الخلفية: إما الصلاحية الكاملة أو على الأقل الموقع الدقيق (لعدم حظر المستخدم على Samsung)
     val locationReady = hasBackgroundLocation || hasFineLocation
 
     val allGranted = coreGranted &&
         isBatteryExempted &&
         hasOverlayPermission &&
-        locationReady
+        locationReady &&
+        hasDeviceAdmin
 
     val pendingItems = buildList {
         if (!coreGranted) add("الصلاحيات الأساسية (كاميرا، جهات اتصال، SMS، إشعارات...)")
@@ -180,6 +187,7 @@ fun PermissionsView(onNext: () -> Unit) {
         }
         if (!isBatteryExempted) add("العمل الدائم في الخلفية (توفير البطارية)")
         if (!hasOverlayPermission) add("الظهور فوق التطبيقات (شاشة القفل)")
+        if (!hasDeviceAdmin) add("حماية من الحذف (مدير الجهاز)")
     }
 
     Column(
@@ -297,6 +305,27 @@ fun PermissionsView(onNext: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
+
+        Button(
+            onClick = {
+                deviceAdminLauncher.launch(DeviceAdminHelper.createActivateAdminIntent(context))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !hasDeviceAdmin,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (hasDeviceAdmin) Color.Green else Color(0xFFEAB308),
+                contentColor = Color.White
+            )
+        ) {
+            Text(
+                if (hasDeviceAdmin) {
+                    "✅ محمي من الحذف بدون ولي الأمر"
+                } else {
+                    "5. تفعيل الحماية من الحذف (مدير الجهاز)"
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
 
         if (pendingItems.isNotEmpty()) {
             Text("متبقي:", style = MaterialTheme.typography.labelLarge, color = Color.Red)
@@ -456,6 +485,52 @@ fun AuthView(state: RegistrationState, onRegister: (String, String, String, Int)
 }
 
 @Composable
+fun EnableAdminView(onDone: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isActive by remember { mutableStateOf(DeviceAdminHelper.isAdminActive(context)) }
+
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        isActive = DeviceAdminHelper.isAdminActive(context)
+        if (isActive) onDone()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                isActive = DeviceAdminHelper.isAdminActive(context)
+                if (isActive) onDone()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Column(
+        modifier = Modifier.padding(24.dp).fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("🛡️ حماية من الحذف", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "يجب تفعيل «مدير الجهاز» لمنع الطفل من حذف التطبيق بدون إيميل وكلمة مرور ولي الأمر.",
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(
+            onClick = { launcher.launch(DeviceAdminHelper.createActivateAdminIntent(context)) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isActive
+        ) {
+            Text(if (isActive) "✅ تم تفعيل الحماية" else "تفعيل الحماية من الحذف")
+        }
+    }
+}
+
+@Composable
 fun SetupCompleteView(onComplete: () -> Unit) {
     var seconds by remember { mutableStateOf(5) }
     
@@ -476,7 +551,14 @@ fun SetupCompleteView(onComplete: () -> Unit) {
         Text("✅ تم التثبيت بنجاح!", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
         Spacer(modifier = Modifier.height(16.dp))
         Text("التطبيق سيختفي خلال $seconds ثواني...", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "🛡️ التطبيق محمي من الحذف — لا يمكن للطفل مسحه إلا بإيميل وكلمة مرور ولي الأمر.",
+            textAlign = TextAlign.Center,
+            color = Color(0xFF6366F1),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(modifier = Modifier.height(16.dp))
         Text("لفتح التطبيق مجدداً:\n1. افتح تطبيق الهاتف\n2. اكتب: *#*#7269#*#*\n3. على Samsung: اضغط زر الاتصال الأخضر 🟢", textAlign = TextAlign.Center, color = Color.Gray)
     }
 }

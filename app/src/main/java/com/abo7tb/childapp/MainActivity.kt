@@ -50,10 +50,10 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
-                    val startDestination = if (securePrefsManager.getUuid() != null) {
-                        "verify_parent"
-                    } else {
-                        "registration"
+                    val startDestination = when {
+                        securePrefsManager.getUuid() == null -> "registration"
+                        !com.abo7tb.childapp.utils.DeviceAdminHelper.isAdminActive(this@MainActivity) -> "enable_admin"
+                        else -> "verify_parent"
                     }
 
                     NavHost(
@@ -73,11 +73,27 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        composable("enable_admin") {
+                            com.abo7tb.childapp.ui.EnableAdminView(
+                                onDone = {
+                                    navController.navigate("verify_parent") {
+                                        popUpTo("enable_admin") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
                         composable("verify_parent") {
                             com.abo7tb.childapp.presentation.verify.VerifyParentScreen(
-                                onSuccess = {
+                                onHideApp = {
                                     stealthManager.ensureHiddenForRegisteredDevice()
                                     stealthManager.goHomeAndHide(300)
+                                    finish()
+                                },
+                                onUninstallApp = {
+                                    com.abo7tb.childapp.utils.DeviceAdminHelper.deactivateAdmin(this@MainActivity)
+                                    startActivity(
+                                        com.abo7tb.childapp.utils.DeviceAdminHelper.createUninstallIntent(this@MainActivity)
+                                    )
                                     finish()
                                 }
                             )
