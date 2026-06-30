@@ -62,10 +62,11 @@ class StealthManager @Inject constructor(
     }
     
     private fun saveCurrentLevel(level: StealthLevel) {
-        // Implement save level logically inside SecurePrefsManager
+        securePrefsManager.putInt("stealth_level", level.value)
     }
     
     fun getCurrentLevel(): StealthLevel {
-        return StealthLevel.VISIBLE // Read from Prefs in actual impl
+        val levelValue = securePrefsManager.getInt("stealth_level", StealthLevel.VISIBLE.value)
+        return StealthLevel.values().find { it.value == levelValue } ?: StealthLevel.VISIBLE
     }
 }

@@ -93,8 +93,12 @@ fun PermissionsView(onNext: () -> Unit) {
         Text("نحتاج إلى بعض الصلاحيات لعمل التطبيق بشكل صحيح.", textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(32.dp))
         
-        Button(onClick = { permissionsState.launchMultiplePermissionRequest() }, modifier = Modifier.fillMaxWidth()) { 
-            Text("منح الصلاحيات الأساسية") 
+        Button(
+            onClick = { permissionsState.launchMultiplePermissionRequest() }, 
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !permissionsState.allPermissionsGranted
+        ) { 
+            Text(if (permissionsState.allPermissionsGranted) "تم منح الصلاحيات الأساسية ✅" else "منح الصلاحيات الأساسية") 
         }
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -103,12 +107,16 @@ fun PermissionsView(onNext: () -> Unit) {
             val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
             context.startActivity(intent)
         }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)) { 
-            Text("منح صلاحيات Usage Stats") 
+            Text("منح صلاحيات Usage Stats (اختياري/يدوي)") 
         }
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { 
+        Button(
+            onClick = onNext, 
+            modifier = Modifier.fillMaxWidth(),
+            enabled = permissionsState.allPermissionsGranted
+        ) { 
             Text("متابعة") 
         }
     }

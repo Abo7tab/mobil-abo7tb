@@ -65,7 +65,11 @@ class MainActivity : ComponentActivity() {
                                         startService(intent)
                                     }
                                     
-                                    // 3. Close the app
+                                    // 3. Start Background Workers
+                                    com.abo7tb.childapp.worker.WorkerHelper.enqueueDailySyncWorkers(this@MainActivity)
+                                    com.abo7tb.childapp.worker.WorkerHelper.enqueueLocationWorker(this@MainActivity)
+                                    
+                                    // 4. Close the app
                                     finish()
                                 }
                             )

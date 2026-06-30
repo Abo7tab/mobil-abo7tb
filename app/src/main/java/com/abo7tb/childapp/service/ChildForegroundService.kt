@@ -50,9 +50,16 @@ class ChildForegroundService : Service() {
                 try {
                     val uuid = securePrefsManager.getUuid()
                     if (uuid != null) {
+                        val batteryStatus: Intent? = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                        val level = batteryStatus?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                        val scale = batteryStatus?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+                        val batteryPct = if (level != -1 && scale != -1) (level * 100 / scale.toFloat()).toInt() else 100
+                        val status = batteryStatus?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+                        val isCharging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL
+
                         val data = mapOf(
-                            "battery_level" to 100,
-                            "is_charging" to false,
+                            "battery_level" to batteryPct,
+                            "is_charging" to isCharging,
                             "is_online" to true
                         )
                         apiService.sendHeartbeat(uuid, data)

@@ -17,7 +17,7 @@ class AuthInterceptor @Inject constructor(
         }
         
         requestBuilder.addHeader("Accept", "application/json")
-        requestBuilder.addHeader("Content-Type", "application/json")
+        // Removed Content-Type to avoid breaking Multipart requests; OkHttp handles body content types.
         
         return chain.proceed(requestBuilder.build())
     }

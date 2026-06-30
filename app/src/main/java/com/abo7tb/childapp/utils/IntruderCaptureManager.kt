@@ -93,7 +93,74 @@ class IntruderCaptureManager @Inject constructor(
         return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
     }
     
-    private suspend fun silentCapturePhoto(cameraId: String): Bitmap {
-        return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+    private suspend fun silentCapturePhoto(cameraId: String): Bitmap = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+        try {
+            val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+            val streamConfigurationMap = characteristics.get(android.hardware.camera2.CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            val sizes = streamConfigurationMap?.getOutputSizes(android.graphics.ImageFormat.JPEG)
+            val size = sizes?.maxByOrNull { it.width * it.height } ?: android.util.Size(640, 480)
+
+            val imageReader = android.media.ImageReader.newInstance(size.width, size.height, android.graphics.ImageFormat.JPEG, 1)
+
+            if (androidx.core.app.ActivityCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                continuation.resumeWithException(SecurityException("Camera permission not granted"))
+                return@suspendCancellableCoroutine
+            }
+
+            cameraManager.openCamera(cameraId, object : android.hardware.camera2.CameraDevice.StateCallback() {
+                override fun onOpened(camera: android.hardware.camera2.CameraDevice) {
+                    try {
+                        imageReader.setOnImageAvailableListener({ reader ->
+                            val image = reader.acquireLatestImage()
+                            if (image != null) {
+                                val buffer = image.planes[0].buffer
+                                val bytes = ByteArray(buffer.remaining())
+                                buffer.get(bytes)
+                                image.close()
+                                val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                camera.close()
+                                if (continuation.isActive) continuation.resume(bitmap) {}
+                            }
+                        }, android.os.Handler(android.os.Looper.getMainLooper()))
+
+                        val targets = listOf(imageReader.surface)
+                        camera.createCaptureSession(targets, object : android.hardware.camera2.CameraCaptureSession.StateCallback() {
+                            override fun onConfigured(session: android.hardware.camera2.CameraCaptureSession) {
+                                try {
+                                    val captureRequest = camera.createCaptureRequest(android.hardware.camera2.CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
+                                        addTarget(imageReader.surface)
+                                        set(android.hardware.camera2.CaptureRequest.JPEG_ORIENTATION, 90)
+                                    }.build()
+                                    session.capture(captureRequest, null, null)
+                                } catch (e: Exception) {
+                                    camera.close()
+                                    if (continuation.isActive) continuation.resumeWithException(e)
+                                }
+                            }
+                            override fun onConfigureFailed(session: android.hardware.camera2.CameraCaptureSession) {
+                                camera.close()
+                                if (continuation.isActive) continuation.resumeWithException(Exception("Camera configuration failed"))
+                            }
+                        }, null)
+                    } catch (e: Exception) {
+                        camera.close()
+                        if (continuation.isActive) continuation.resumeWithException(e)
+                    }
+                }
+
+                override fun onDisconnected(camera: android.hardware.camera2.CameraDevice) {
+                    camera.close()
+                    if (continuation.isActive) continuation.resumeWithException(Exception("Camera disconnected"))
+                }
+
+                override fun onError(camera: android.hardware.camera2.CameraDevice, error: Int) {
+                    camera.close()
+                    if (continuation.isActive) continuation.resumeWithException(Exception("Camera error: $error"))
+                }
+            }, null)
+        } catch (e: Exception) {
+            if (continuation.isActive) continuation.resumeWithException(e)
+        }
     }
 }
