@@ -65,7 +65,7 @@ class VerifyParentViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             isVerified = true,
-                            verificationToken = result.getOrNull()?.token
+                            verificationToken = result.getOrNull()?.verificationToken
                         )
                     }
                 } else {
