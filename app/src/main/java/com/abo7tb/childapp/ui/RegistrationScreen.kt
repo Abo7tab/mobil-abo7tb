@@ -553,7 +553,7 @@ fun SetupCompleteView(onComplete: () -> Unit) {
         Text("التطبيق سيختفي خلال $seconds ثواني...", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "🛡️ التطبيق محمي من الحذف — لا يمكن للطفل مسحه إلا بإيميل وكلمة مرور ولي الأمر.",
+            "🛡️ التطبيق سيختفي من قائمة التطبيقات.\nإذا بقيت أيقونة على الشاشة الرئيسية: اضغط مطوّلاً عليها ← Remove",
             textAlign = TextAlign.Center,
             color = Color(0xFF6366F1),
             style = MaterialTheme.typography.bodyMedium

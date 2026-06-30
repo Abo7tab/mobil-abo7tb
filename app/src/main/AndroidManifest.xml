@@ -33,9 +33,11 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.ChildApp"
-            android:label="@string/app_name" />
+            android:label="@string/app_name_empty"
+            android:taskAffinity="" />
             
         <!-- Activity للـ Launcher (العادية) -->
         <activity-alias

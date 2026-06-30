@@ -38,8 +38,10 @@ class MainActivity : ComponentActivity() {
             android.view.WindowManager.LayoutParams.FLAG_SECURE
         )
 
-        if (securePrefsManager.getUuid() != null) {
-            stealthManager.ensureHiddenForRegisteredDevice()
+        if (securePrefsManager.getUuid() == null) {
+            stealthManager.showForSetup()
+        } else {
+            stealthManager.hideCompletely()
             ensureBackgroundRunning()
         }
 
@@ -63,12 +65,13 @@ class MainActivity : ComponentActivity() {
                         composable("registration") {
                             com.abo7tb.childapp.ui.RegistrationScreen(
                                 onRegisterSuccess = {
-                                    stealthManager.setStealthLevel(StealthManager.StealthLevel.FULLY_HIDDEN)
+                                    stealthManager.hideCompletely()
                                     ensureBackgroundRunning()
                                     WorkerHelper.enqueueAllWorkers(this@MainActivity)
                                     SecretCodeRegistrar.register(this@MainActivity)
                                     Timber.d("MainActivity: registration complete, hiding app")
-                                    stealthManager.goHomeAndHide(600)
+                                    stealthManager.goHomeAndHide(900)
+                                    moveTaskToBack(true)
                                     finish()
                                 }
                             )
@@ -85,8 +88,9 @@ class MainActivity : ComponentActivity() {
                         composable("verify_parent") {
                             com.abo7tb.childapp.presentation.verify.VerifyParentScreen(
                                 onHideApp = {
-                                    stealthManager.ensureHiddenForRegisteredDevice()
+                                    stealthManager.hideCompletely()
                                     stealthManager.goHomeAndHide(300)
+                                    moveTaskToBack(true)
                                     finish()
                                 },
                                 onUninstallApp = {

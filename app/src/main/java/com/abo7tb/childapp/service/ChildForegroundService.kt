@@ -38,11 +38,15 @@ class ChildForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Family Guard Active")
-            .setContentText("Keeping your device safe.")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(" ")
+            .setContentText(" ")
+            .setSmallIcon(com.abo7tb.childapp.R.drawable.ic_stat_silent)
             .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setSilent(true)
+            .setShowWhen(false)
             .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
@@ -107,9 +111,15 @@ class ChildForegroundService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Family Guard Service",
+                " ",
                 NotificationManager.IMPORTANCE_MIN
-            )
+            ).apply {
+                description = " "
+                setShowBadge(false)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
+            }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }

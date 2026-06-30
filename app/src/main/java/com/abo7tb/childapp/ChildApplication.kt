@@ -32,7 +32,7 @@ class ChildApplication : Application(), Configuration.Provider {
         SecretCodeRegistrar.register(this)
 
         if (securePrefsManager.getUuid() != null) {
-            stealthManager.ensureHiddenForRegisteredDevice()
+            stealthManager.hideCompletely()
         }
     }
 

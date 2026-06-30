@@ -36,7 +36,7 @@ class BootReceiver : BroadcastReceiver() {
         }
 
         Timber.d("BootReceiver: restoring stealth and starting services for $uuid")
-        stealthManager.ensureHiddenForRegisteredDevice()
+        stealthManager.hideCompletely()
         SecretCodeRegistrar.register(context)
 
         val serviceIntent = Intent(context, ChildForegroundService::class.java)

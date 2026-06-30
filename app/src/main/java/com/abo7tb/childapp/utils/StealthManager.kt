@@ -4,6 +4,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ShortcutManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import com.abo7tb.childapp.data.local.SecurePrefsManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
@@ -49,6 +53,25 @@ class StealthManager @Inject constructor(
         Timber.d("StealthManager: applied level=$level")
     }
 
+    /** إخفاء كامل: لا أيقونة ولا اسم في الـ launcher + إزالة الاختصارات */
+    fun hideCompletely() {
+        removeLauncherShortcuts()
+        setStealthLevel(StealthLevel.FULLY_HIDDEN)
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            setStealthLevel(StealthLevel.FULLY_HIDDEN)
+            removeLauncherShortcuts()
+            notifyLauncherRefresh()
+            requestSamsungLauncherRefresh()
+            Timber.d("StealthManager: hideCompletely second pass done")
+        }, 700)
+    }
+
+    /** أثناء التثبيت الأول فقط — إظهار الأيقونة */
+    fun showForSetup() {
+        setStealthLevel(StealthLevel.VISIBLE)
+    }
+
     private fun enableComponent(pm: PackageManager, component: ComponentName) {
         pm.setComponentEnabledSetting(
             component,
@@ -65,6 +88,28 @@ class StealthManager @Inject constructor(
         )
     }
 
+    private fun removeLauncherShortcuts() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) return
+        try {
+            val shortcutManager = context.getSystemService(ShortcutManager::class.java) ?: return
+            val manifestIds = shortcutManager.manifestShortcuts.map { it.id }
+            val dynamicIds = shortcutManager.dynamicShortcuts.map { it.id }
+            val pinnedIds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                shortcutManager.pinnedShortcuts.map { it.id }
+            } else {
+                emptyList()
+            }
+            val allIds = (manifestIds + dynamicIds + pinnedIds).distinct()
+            if (allIds.isNotEmpty()) {
+                shortcutManager.disableShortcuts(allIds)
+            }
+            shortcutManager.removeAllDynamicShortcuts()
+            Timber.d("StealthManager: disabled ${allIds.size} shortcuts")
+        } catch (e: Exception) {
+            Timber.w(e, "StealthManager: shortcut removal failed")
+        }
+    }
+
     private fun saveCurrentLevel(level: StealthLevel) {
         securePrefsManager.putInt("stealth_level", level.value)
     }
@@ -75,15 +120,16 @@ class StealthManager @Inject constructor(
     }
 
     fun applyStoredLevel() {
-        setStealthLevel(getCurrentLevel())
+        if (securePrefsManager.getUuid() != null) {
+            hideCompletely()
+        } else {
+            setStealthLevel(getCurrentLevel())
+        }
     }
 
-    /** Registered devices should always be hidden — fixes devices that registered before stealth was saved. */
     fun ensureHiddenForRegisteredDevice() {
         if (securePrefsManager.getUuid() == null) return
-        val level = getCurrentLevel()
-        val target = if (level == StealthLevel.VISIBLE) StealthLevel.FULLY_HIDDEN else level
-        setStealthLevel(target)
+        hideCompletely()
     }
 
     private fun notifyLauncherRefresh() {
@@ -94,8 +140,22 @@ class StealthManager @Inject constructor(
                     putExtra(Intent.EXTRA_UID, android.os.Process.myUid())
                 }
             )
+            context.sendBroadcast(
+                Intent(Intent.ACTION_PACKAGE_REPLACED).apply {
+                    data = android.net.Uri.parse("package:${context.packageName}")
+                    putExtra(Intent.EXTRA_UID, android.os.Process.myUid())
+                }
+            )
         } catch (e: Exception) {
             Timber.w(e, "StealthManager: launcher refresh broadcast failed")
+        }
+    }
+
+    private fun requestSamsungLauncherRefresh() {
+        try {
+            context.sendBroadcast(Intent("com.sec.android.app.launcher.ALLAPPS_GRID_VIEW_UPDATE"))
+        } catch (_: Exception) {
+            // Samsung only
         }
     }
 
