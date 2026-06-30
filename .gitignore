@@ -13,3 +13,18 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Build
+/app/build
+
+# IDE
+.vscode/
+
+# Sensitive
+google-services.json
+*.keystore
+*.jks
+key.properties
+
+# OS
+Thumbs.db

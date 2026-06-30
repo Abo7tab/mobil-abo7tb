@@ -20,9 +20,9 @@
     <application
         android:name=".ChildApplication"
         android:allowBackup="false"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher"
         android:label="Family Guard - Child"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.ChildApp"
         tools:targetApi="31">
@@ -38,7 +38,7 @@
             android:name=".LauncherAliasVisible"
             android:enabled="true"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher"
+            android:icon="@drawable/ic_launcher"
             android:label="@string/app_name"
             android:targetActivity=".MainActivity">
             <intent-filter>

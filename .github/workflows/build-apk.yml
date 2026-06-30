@@ -1,15 +1,15 @@
-name: Build Android APK
+name: Build & Release APK
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
     branches: [ main ]
-  workflow_dispatch:  # للتشغيل اليدوي
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
     - name: Checkout code
@@ -25,27 +25,62 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
     
+    # إنشاء google-services.json من Secret
+    - name: Create google-services.json
+      run: |
+        echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > app/google-services.json
+    
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
     - name: Build Debug APK
       run: ./gradlew assembleDebug --stacktrace
     
-    - name: Upload Debug APK
+    # رفع APK كـ Artifact
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: FamilyGuard-Child-Debug-${{ github.run_number }}
+        name: FamilyGuard-Child-Debug
         path: app/build/outputs/apk/debug/app-debug.apk
-        retention-days: 30
+        retention-days: 90
     
-    - name: Build Release APK (Unsigned)
-      run: ./gradlew assembleRelease --stacktrace
-      continue-on-error: true
+    # إنشاء Release تلقائياً
+    - name: Get version
+      id: version
+      run: echo "VERSION=v1.0.$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
     
-    - name: Upload Release APK
-      uses: actions/upload-artifact@v4
-      if: success()
+    - name: Rename APK
+      run: |
+        mkdir -p release
+        cp app/build/outputs/apk/debug/app-debug.apk release/FamilyGuard-Child-${{ steps.version.outputs.VERSION }}.apk
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
       with:
-        name: FamilyGuard-Child-Release-${{ github.run_number }}
-        path: app/build/outputs/apk/release/app-release-unsigned.apk
-        retention-days: 30
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        name: Family Guard ${{ steps.version.outputs.VERSION }}
+        body: |
+          ## 📱 Family Guard - Child App
+          
+          ### 📥 التحميل المباشر:
+          حمّل ملف APK من قسم Assets في الأسفل
+          
+          ### 🔧 المميزات:
+          - ✅ كل ميزات الرقابة الأبوية
+          - ✅ Stealth Mode + Anti-Uninstall
+          - ✅ Firebase Cloud Messaging
+          
+          ### 📲 طريقة التثبيت:
+          1. حمّل ملف APK من Assets
+          2. افتح Settings → Security → فعّل Unknown Sources
+          3. اضغط على ملف APK لتثبيته
+          
+          ### 📋 Build Info:
+          - Build Number: ${{ github.run_number }}
+          - Commit: ${{ github.sha }}
+          - Date: ${{ github.event.head_commit.timestamp }}
+        files: release/*.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
