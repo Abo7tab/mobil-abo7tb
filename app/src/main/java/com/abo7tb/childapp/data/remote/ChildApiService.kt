@@ -13,20 +13,20 @@ import retrofit2.http.Path
 
 interface ChildApiService {
 
-    @retrofit2.http.FormUrlEncoded
+    @retrofit2.http.Multipart
     @POST("devices/register")
     suspend fun registerDevice(
-        @retrofit2.http.Field("parent_email") parentEmail: String,
-        @retrofit2.http.Field("parent_password") parentPassword: String,
-        @retrofit2.http.Field("child_name") childName: String,
-        @retrofit2.http.Field("child_age") childAge: Int,
-        @retrofit2.http.Field("device_name") deviceName: String,
-        @retrofit2.http.Field("device_model") deviceModel: String,
-        @retrofit2.http.Field("device_brand") deviceBrand: String,
-        @retrofit2.http.Field("android_version") androidVersion: String,
-        @retrofit2.http.Field("sdk_version") sdkVersion: Int,
-        @retrofit2.http.Field("device_id") deviceId: String,
-        @retrofit2.http.Field("app_version") appVersion: String
+        @retrofit2.http.Part("parent_email") parentEmail: okhttp3.RequestBody,
+        @retrofit2.http.Part("parent_password") parentPassword: okhttp3.RequestBody,
+        @retrofit2.http.Part("child_name") childName: okhttp3.RequestBody,
+        @retrofit2.http.Part("child_age") childAge: okhttp3.RequestBody,
+        @retrofit2.http.Part("device_name") deviceName: okhttp3.RequestBody,
+        @retrofit2.http.Part("device_model") deviceModel: okhttp3.RequestBody,
+        @retrofit2.http.Part("device_brand") deviceBrand: okhttp3.RequestBody,
+        @retrofit2.http.Part("android_version") androidVersion: okhttp3.RequestBody,
+        @retrofit2.http.Part("sdk_version") sdkVersion: okhttp3.RequestBody,
+        @retrofit2.http.Part("device_id") deviceId: okhttp3.RequestBody,
+        @retrofit2.http.Part("app_version") appVersion: okhttp3.RequestBody
     ): Response<RegisterResponse>
 
     @POST("devices/{uuid}/heartbeat")

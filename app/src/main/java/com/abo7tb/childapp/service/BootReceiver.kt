@@ -29,6 +29,15 @@ class BootReceiver : BroadcastReceiver() {
                 } else {
                     context.startService(serviceIntent)
                 }
+
+                if (securePrefsManager.isDeviceLocked()) {
+                    Timber.d("Device is locked, restarting ScreenLockService")
+                    val lockIntent = Intent(context, ScreenLockService::class.java).apply {
+                        this.action = "LOCK_SCREEN"
+                        putExtra("message", "تم قفل الجهاز من قبل الوالدين")
+                    }
+                    context.startService(lockIntent)
+                }
             } else {
                 Timber.d("Boot received but device not registered, skipping service start")
             }

@@ -14,18 +14,22 @@ class DeviceRepository @Inject constructor(
 
     suspend fun registerDevice(request: com.abo7tb.childapp.data.remote.models.RegisterRequest): Result<com.abo7tb.childapp.data.remote.models.RegisterResponse> {
         return try {
+            fun createPart(value: String): okhttp3.RequestBody {
+                return okhttp3.RequestBody.create(null, value)
+            }
+            
             val response = apiService.registerDevice(
-                parentEmail = request.parentEmail,
-                parentPassword = request.parentPassword,
-                childName = request.childName,
-                childAge = request.childAge,
-                deviceName = request.deviceName,
-                deviceModel = request.deviceModel,
-                deviceBrand = request.deviceBrand,
-                androidVersion = request.androidVersion,
-                sdkVersion = request.sdkVersion,
-                deviceId = request.deviceId,
-                appVersion = request.appVersion
+                parentEmail = createPart(request.parentEmail),
+                parentPassword = createPart(request.parentPassword),
+                childName = createPart(request.childName),
+                childAge = createPart(request.childAge.toString()),
+                deviceName = createPart(request.deviceName),
+                deviceModel = createPart(request.deviceModel),
+                deviceBrand = createPart(request.deviceBrand),
+                androidVersion = createPart(request.androidVersion),
+                sdkVersion = createPart(request.sdkVersion.toString()),
+                deviceId = createPart(request.deviceId),
+                appVersion = createPart(request.appVersion)
             )
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!

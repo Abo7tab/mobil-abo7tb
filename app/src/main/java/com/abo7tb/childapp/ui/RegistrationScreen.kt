@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.animation.Crossfade
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,17 +41,19 @@ fun RegistrationScreen(
         }
     }
 
-    when (step) {
-        1 -> WelcomeView(onNext = { step = 2 })
-        2 -> PermissionsView(onNext = { step = 3 })
-        3 -> ChildConsentView(onAgree = { step = 4 })
-        4 -> AuthView(
-            state = state,
-            onRegister = { email, password, childName, childAge ->
-                viewModel.registerDevice(email, password, childName, childAge)
-            }
-        )
-        5 -> SetupCompleteView(onComplete = onRegisterSuccess)
+    Crossfade(targetState = step, label = "StepAnimation") { targetStep ->
+        when (targetStep) {
+            1 -> WelcomeView(onNext = { step = 2 })
+            2 -> PermissionsView(onNext = { step = 3 })
+            3 -> ChildConsentView(onAgree = { step = 4 })
+            4 -> AuthView(
+                state = state,
+                onRegister = { email, password, childName, childAge ->
+                    viewModel.registerDevice(email, password, childName, childAge)
+                }
+            )
+            5 -> SetupCompleteView(onComplete = onRegisterSuccess)
+        }
     }
 }
 
@@ -225,10 +229,22 @@ fun AuthView(state: RegistrationState, onRegister: (String, String, String, Int)
         var password by remember { mutableStateOf("") }
         var childName by remember { mutableStateOf("") }
         var childAge by remember { mutableStateOf("") }
+        var passwordVisible by remember { mutableStateOf(false) }
         
         OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("بريد ولي الأمر") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("كلمة مرور ولي الأمر") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = password, 
+            onValueChange = { password = it }, 
+            label = { Text("كلمة مرور ولي الأمر") }, 
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                TextButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Text(if (passwordVisible) "إخفاء" else "إظهار")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(value = childName, onValueChange = { childName = it }, label = { Text("اسم الطفل") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(8.dp))

@@ -51,6 +51,14 @@ class SecurePrefsManager @Inject constructor(@ApplicationContext context: Contex
         return sharedPreferences.getString(Constants.FCM_TOKEN_KEY, null)
     }
 
+    fun setDeviceLocked(isLocked: Boolean) {
+        sharedPreferences.edit().putBoolean("is_device_locked", isLocked).apply()
+    }
+
+    fun isDeviceLocked(): Boolean {
+        return sharedPreferences.getBoolean("is_device_locked", false)
+    }
+
     fun getInt(key: String, defValue: Int): Int = sharedPreferences.getInt(key, defValue)
     fun putInt(key: String, value: Int) = sharedPreferences.edit().putInt(key, value).apply()
     fun getLong(key: String, defValue: Long): Long = sharedPreferences.getLong(key, defValue)

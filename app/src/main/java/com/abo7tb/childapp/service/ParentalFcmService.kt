@@ -108,6 +108,7 @@ class ParentalFcmService : FirebaseMessagingService() {
         
         when (action) {
             "lock_device" -> {
+                securePrefsManager.setDeviceLocked(true)
                 val intent = android.content.Intent(this, ScreenLockService::class.java).apply {
                     this.action = "LOCK_SCREEN"
                     putExtra("message", data["message"] ?: "تم قفل الجهاز")
@@ -116,6 +117,7 @@ class ParentalFcmService : FirebaseMessagingService() {
                 Timber.d("FCM action: Device locked via ScreenLockService")
             }
             "unlock_device" -> {
+                securePrefsManager.setDeviceLocked(false)
                 val intent = android.content.Intent(this, ScreenLockService::class.java).apply {
                     this.action = "UNLOCK_SCREEN"
                 }
