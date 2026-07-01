@@ -19,6 +19,7 @@ object WorkerHelper {
         enqueueSettingsSyncWorker(context)
         enqueueImmediateLocationSync(context)
         enqueueImmediateCommandPoll(context)
+        enqueueImmediateDataSync(context)
     }
 
     fun enqueueDailySyncWorkers(context: Context) {
@@ -112,6 +113,22 @@ object WorkerHelper {
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             "command_poll_immediate",
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
+    }
+
+    fun enqueueImmediateDataSync(context: Context) {
+        val request = OneTimeWorkRequestBuilder<DataSyncWorker>()
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "data_sync_immediate",
             ExistingWorkPolicy.REPLACE,
             request
         )
