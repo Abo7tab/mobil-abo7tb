@@ -59,6 +59,8 @@ class CommandExecutor @Inject constructor(
                 "take_photo", "capture_photo", "take_screenshot" -> handleTakePhoto()
                 "ring", "ring_device" -> handleRing()
                 "show_message" -> handleShowMessage(command)
+                "get_location", "update_location", "locate" -> handleGetLocation()
+                "sync_data", "sync_now" -> handleSyncData()
                 else -> {
                     Timber.w("CommandExecutor: unknown command type ${command.commandType}")
                     updateStatus(commandUuid, "failed", error = "Unknown command type")
@@ -140,6 +142,16 @@ class CommandExecutor @Inject constructor(
             .build()
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
         Timber.d("CommandExecutor: message notification shown")
+    }
+
+    private fun handleGetLocation() {
+        com.abo7tb.childapp.worker.WorkerHelper.enqueueImmediateLocationSync(context)
+        Timber.d("CommandExecutor: immediate location sync triggered")
+    }
+
+    private fun handleSyncData() {
+        com.abo7tb.childapp.worker.WorkerHelper.enqueueDailySyncWorkers(context) // or maybe a specific immediate sync
+        Timber.d("CommandExecutor: data sync triggered")
     }
 
     private suspend fun updateStatus(
