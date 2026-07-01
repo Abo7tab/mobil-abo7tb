@@ -59,7 +59,7 @@ fun VerifyParentScreen(
         )
 
         Text(
-            "مطلوب لإدارة التطبيق أو حذفه",
+            "مطلوب لإدارة التطبيق أو حذفه\n\nلفتح التطبيق: *#*#7269#*#* ثم زر الاتصال الأخضر (Samsung)",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = Color.Gray,

@@ -67,7 +67,19 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Secret code: manifest receiver (Android 7-) + dynamic registration in ChildApplication (Android 8+) -->
+        <!-- Secret code — Activity (Samsung) + Broadcast -->
+        <activity
+            android:name=".SecretAccessActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter android:priority="999">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="android_secret_code" android:host="7269" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".receivers.SecretCodeReceiver"
             android:exported="true"

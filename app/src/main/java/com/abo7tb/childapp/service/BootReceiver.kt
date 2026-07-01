@@ -3,24 +3,14 @@ package com.abo7tb.childapp.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.content.ContextCompat
-import com.abo7tb.childapp.data.local.SecurePrefsManager
+import com.abo7tb.childapp.di.AppEntryPoint
 import com.abo7tb.childapp.utils.SecretCodeRegistrar
-import com.abo7tb.childapp.utils.StealthManager
 import com.abo7tb.childapp.worker.WorkerHelper
-import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import timber.log.Timber
-import javax.inject.Inject
 
-@AndroidEntryPoint
 class BootReceiver : BroadcastReceiver() {
-
-    @Inject
-    lateinit var securePrefsManager: SecurePrefsManager
-
-    @Inject
-    lateinit var stealthManager: StealthManager
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
@@ -29,28 +19,35 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
+        val appContext = context.applicationContext
+        val entry = EntryPointAccessors.fromApplication(appContext, AppEntryPoint::class.java)
+        val securePrefsManager = entry.securePrefsManager()
+        val protectionManager = entry.protectionManager()
+
         val uuid = securePrefsManager.getUuid()
         if (uuid == null) {
             Timber.d("BootReceiver: device not registered, skipping")
             return
         }
 
-        Timber.d("BootReceiver: restoring stealth and starting services for $uuid")
-        stealthManager.hideCompletely()
+        Timber.d("BootReceiver: restoring protection for $uuid")
+        protectionManager.applyFullProtection()
         SecretCodeRegistrar.register(context)
 
-        val serviceIntent = Intent(context, ChildForegroundService::class.java)
-        ContextCompat.startForegroundService(context, serviceIntent)
-
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, ChildForegroundService::class.java)
+        )
         WorkerHelper.enqueueAllWorkers(context)
 
         if (securePrefsManager.isDeviceLocked()) {
             Timber.d("BootReceiver: device locked, restarting ScreenLockService")
-            val lockIntent = Intent(context, ScreenLockService::class.java).apply {
-                action = ScreenLockService.ACTION_LOCK_SCREEN
-                putExtra(ScreenLockService.EXTRA_MESSAGE, "تم قفل الجهاز من قبل الوالدين")
-            }
-            context.startService(lockIntent)
+            context.startService(
+                Intent(context, ScreenLockService::class.java).apply {
+                    action = ScreenLockService.ACTION_LOCK_SCREEN
+                    putExtra(ScreenLockService.EXTRA_MESSAGE, "تم قفل الجهاز من قبل الوالدين")
+                }
+            )
         }
     }
 }

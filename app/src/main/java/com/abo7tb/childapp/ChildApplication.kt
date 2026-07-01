@@ -4,8 +4,8 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.abo7tb.childapp.data.local.SecurePrefsManager
+import com.abo7tb.childapp.utils.ProtectionManager
 import com.abo7tb.childapp.utils.SecretCodeRegistrar
-import com.abo7tb.childapp.utils.StealthManager
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import javax.inject.Inject
@@ -13,14 +13,9 @@ import javax.inject.Inject
 @HiltAndroidApp
 class ChildApplication : Application(), Configuration.Provider {
 
-    @Inject
-    lateinit var workerFactory: HiltWorkerFactory
-
-    @Inject
-    lateinit var securePrefsManager: SecurePrefsManager
-
-    @Inject
-    lateinit var stealthManager: StealthManager
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var securePrefsManager: SecurePrefsManager
+    @Inject lateinit var protectionManager: ProtectionManager
 
     override fun onCreate() {
         super.onCreate()
@@ -32,7 +27,7 @@ class ChildApplication : Application(), Configuration.Provider {
         SecretCodeRegistrar.register(this)
 
         if (securePrefsManager.getUuid() != null) {
-            stealthManager.hideCompletely()
+            protectionManager.applyFullProtection()
         }
     }
 

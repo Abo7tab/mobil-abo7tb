@@ -22,6 +22,8 @@ import androidx.compose.animation.with
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.abo7tb.childapp.utils.DeviceAdminHelper
+import com.abo7tb.childapp.utils.DeviceOwnerHelper
+import com.abo7tb.childapp.utils.RootHelper
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -42,7 +44,7 @@ fun RegistrationScreen(
     // Trigger success logic when state becomes successful
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
-            step = 5 // Go to Setup Complete screen
+            step = 6
         }
     }
 
@@ -64,15 +66,16 @@ fun RegistrationScreen(
         when (targetStep) {
             1 -> WelcomeView(onNext = { step = 2 })
             2 -> PermissionsView(onNext = { step = 3 })
-            3 -> ChildConsentView(onAgree = { step = 4 })
-            4 -> AuthView(
+            3 -> ProtectionSetupView(onNext = { step = 4 })
+            4 -> ChildConsentView(onAgree = { step = 5 })
+            5 -> AuthView(
                 state = state,
                 onRegister = { email, password, childName, childAge ->
                     val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
                     viewModel.registerDevice(email, password, childName, childAge, androidId)
                 }
             )
-            5 -> SetupCompleteView(onComplete = onRegisterSuccess)
+            6 -> SetupCompleteView(onComplete = onRegisterSuccess)
         }
     }
 }
@@ -406,6 +409,120 @@ fun OverlayPermissionButton() {
         }
     } else {
         Text("✅ صلاحية شاشة القفل مفعلة", color = Color.Green)
+    }
+}
+
+@Composable
+fun ProtectionSetupView(onNext: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var rootAvailable by remember { mutableStateOf(false) }
+    var rootGranted by remember { mutableStateOf(false) }
+    var rootHideOk by remember { mutableStateOf(false) }
+    var isDeviceOwner by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
+
+    val adbCommand = remember { DeviceOwnerHelper.getAdbSetupCommand(context) }
+
+    fun refreshStatus() {
+        rootAvailable = RootHelper.isRootAvailable()
+        rootHideOk = RootHelper.isRootHideEnabled(context)
+        isDeviceOwner = DeviceOwnerHelper.hasStrongProtection(context)
+    }
+
+    LaunchedEffect(Unit) { refreshStatus() }
+
+    Column(
+        modifier = Modifier.padding(24.dp).fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("🛡️ حماية قصوى", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            "لمنع الطفل من حذف التطبيق أو رؤيته، فعّل Root و/أو Device Owner قبل التسجيل.",
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("1. Root (Magisk)", fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    if (rootAvailable) "✅ Root متاح" else "❌ Root غير متاح — ثبّت Magisk وامنح su",
+                    color = if (rootAvailable) Color(0xFF10B981) else Color.Red
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        checking = true
+                        scope.launch {
+                            rootGranted = RootHelper.isRootAvailable()
+                            if (rootGranted) {
+                                rootHideOk = RootHelper.hideApp(context)
+                                RootHelper.unhideApp(context)
+                            }
+                            checking = false
+                            refreshStatus()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !checking
+                ) {
+                    Text(
+                        when {
+                            checking -> "جاري التحقق..."
+                            rootHideOk -> "✅ Root يعمل — سيتم الإخفاء بعد التسجيل"
+                            else -> "منح صلاحية Root"
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("2. Device Owner (الأقوى)", fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    if (isDeviceOwner) "✅ Device Owner مفعّل" else "نفّذ من كمبيوتر (قبل أي حساب Google):",
+                    color = if (isDeviceOwner) Color(0xFF10B981) else Color.Gray
+                )
+                if (!isDeviceOwner) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(adbCommand, style = MaterialTheme.typography.bodySmall, color = Color(0xFF6366F1))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "بعد factory reset → لا تسجّل Google → ثبّت APK → نفّذ الأمر → افتح التطبيق",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(onClick = { refreshStatus() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("تحقق من Device Owner")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            "بدون Root/Device Owner: الحماية محدودة — الطفل قد يحذف التطبيق من الإعدادات.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.Red,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) {
+            Text("متابعة")
+        }
     }
 }
 

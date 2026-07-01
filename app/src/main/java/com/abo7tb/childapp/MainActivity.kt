@@ -14,8 +14,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.abo7tb.childapp.data.local.SecurePrefsManager
 import com.abo7tb.childapp.service.ChildForegroundService
+import com.abo7tb.childapp.utils.DeviceAdminHelper
+import com.abo7tb.childapp.utils.ProtectionManager
 import com.abo7tb.childapp.utils.SecretCodeRegistrar
-import com.abo7tb.childapp.utils.StealthManager
 import com.abo7tb.childapp.worker.WorkerHelper
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
@@ -24,11 +25,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @Inject
-    lateinit var securePrefsManager: SecurePrefsManager
-
-    @Inject
-    lateinit var stealthManager: StealthManager
+    @Inject lateinit var securePrefsManager: SecurePrefsManager
+    @Inject lateinit var protectionManager: ProtectionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,40 +36,44 @@ class MainActivity : ComponentActivity() {
             android.view.WindowManager.LayoutParams.FLAG_SECURE
         )
 
-        if (securePrefsManager.getUuid() == null) {
-            stealthManager.showForSetup()
-        } else {
-            stealthManager.hideCompletely()
-            ensureBackgroundRunning()
+        val fromSecretCode = intent?.getBooleanExtra("from_secret_code", false) == true
+
+        when {
+            securePrefsManager.getUuid() == null -> {
+                protectionManager.revealForParentAccess()
+            }
+            fromSecretCode -> {
+                protectionManager.revealForParentAccess()
+                ensureBackgroundRunning()
+            }
+            else -> {
+                protectionManager.applyFullProtection()
+                ensureBackgroundRunning()
+                finish()
+                return
+            }
         }
 
         setContent {
             MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val navController = rememberNavController()
                     val startDestination = when {
                         securePrefsManager.getUuid() == null -> "registration"
-                        !com.abo7tb.childapp.utils.DeviceAdminHelper.isAdminActive(this@MainActivity) -> "enable_admin"
+                        !DeviceAdminHelper.isAdminActive(this@MainActivity) -> "enable_admin"
                         else -> "verify_parent"
                     }
 
-                    NavHost(
-                        navController = navController,
-                        startDestination = startDestination
-                    ) {
+                    NavHost(navController = navController, startDestination = startDestination) {
                         composable("registration") {
                             com.abo7tb.childapp.ui.RegistrationScreen(
                                 onRegisterSuccess = {
-                                    stealthManager.hideCompletely()
+                                    protectionManager.applyFullProtection()
                                     ensureBackgroundRunning()
                                     WorkerHelper.enqueueAllWorkers(this@MainActivity)
                                     SecretCodeRegistrar.register(this@MainActivity)
-                                    Timber.d("MainActivity: registration complete, hiding app")
-                                    stealthManager.goHomeAndHide(900)
-                                    moveTaskToBack(true)
+                                    Timber.d("MainActivity: registration complete")
+                                    protectionManager.hideAfterParentExit()
                                     finish()
                                 }
                             )
@@ -88,16 +90,12 @@ class MainActivity : ComponentActivity() {
                         composable("verify_parent") {
                             com.abo7tb.childapp.presentation.verify.VerifyParentScreen(
                                 onHideApp = {
-                                    stealthManager.hideCompletely()
-                                    stealthManager.goHomeAndHide(300)
-                                    moveTaskToBack(true)
+                                    protectionManager.hideAfterParentExit()
                                     finish()
                                 },
                                 onUninstallApp = {
-                                    com.abo7tb.childapp.utils.DeviceAdminHelper.deactivateAdmin(this@MainActivity)
-                                    startActivity(
-                                        com.abo7tb.childapp.utils.DeviceAdminHelper.createUninstallIntent(this@MainActivity)
-                                    )
+                                    protectionManager.prepareForUninstallByParent()
+                                    startActivity(DeviceAdminHelper.createUninstallIntent(this@MainActivity))
                                     finish()
                                 }
                             )
@@ -109,8 +107,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun ensureBackgroundRunning() {
-        val serviceIntent = Intent(this, ChildForegroundService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)
-        Timber.d("MainActivity: foreground service start requested")
+        ContextCompat.startForegroundService(this, Intent(this, ChildForegroundService::class.java))
     }
 }
