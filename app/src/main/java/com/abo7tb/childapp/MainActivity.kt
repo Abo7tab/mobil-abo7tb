@@ -21,12 +21,18 @@ import com.abo7tb.childapp.worker.WorkerHelper
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import javax.inject.Inject
+import android.util.Log
+import androidx.lifecycle.lifecycleScope
+import com.google.firebase.messaging.FirebaseMessaging
+import com.abo7tb.childapp.domain.repository.DeviceRepository
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var securePrefsManager: SecurePrefsManager
     @Inject lateinit var protectionManager: ProtectionManager
+    @Inject lateinit var deviceRepository: DeviceRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +41,25 @@ class MainActivity : ComponentActivity() {
             android.view.WindowManager.LayoutParams.FLAG_SECURE,
             android.view.WindowManager.LayoutParams.FLAG_SECURE
         )
+        
+        // جلب الـ Token وتحديثه في السيرفر
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val currentToken = task.result
+                Log.d("FCM_TOKEN", "🚀 Current Device Token: $currentToken")
+
+                lifecycleScope.launch {
+                    try {
+                        deviceRepository.updateFcmToken(currentToken)
+                        Log.d("FCM_TOKEN", "✅ Token sent to server successfully")
+                    } catch (e: Exception) {
+                        Log.e("FCM_TOKEN", "❌ Failed to send token: ${e.message}")
+                    }
+                }
+            } else {
+                Log.e("FCM_TOKEN", "❌ Could not get FCM token", task.exception)
+            }
+        }
 
         val fromSecretCode = intent?.getBooleanExtra("from_secret_code", false) == true
 

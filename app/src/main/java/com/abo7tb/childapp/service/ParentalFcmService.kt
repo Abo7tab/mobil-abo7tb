@@ -33,6 +33,7 @@ class ParentalFcmService : FirebaseMessagingService() {
     
     override fun onNewToken(token: String) {
         super.onNewToken(token)
+        android.util.Log.d("FCM_DEBUG", "🆕 New Token: $token")
         Timber.d("FCM: New token received: $token")
         
         // حفظ الـ token محلياً
@@ -47,6 +48,10 @@ class ParentalFcmService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
+        
+        android.util.Log.d("FCM_DEBUG", "🔥🔥🔥 FCM RECEIVED! 🔥🔥🔥")
+        android.util.Log.d("FCM_DEBUG", "From: ${remoteMessage.from}")
+        android.util.Log.d("FCM_DEBUG", "Data Payload: ${remoteMessage.data}")
         
         Timber.d("FCM: Message received - Data: ${remoteMessage.data}")
         
