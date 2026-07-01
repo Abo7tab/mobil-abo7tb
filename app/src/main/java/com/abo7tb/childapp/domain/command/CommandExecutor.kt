@@ -55,25 +55,36 @@ class CommandExecutor @Inject constructor(
             Timber.d("Command already executed, skipping: $commandUuid")
             return true
         }
+        
+        Timber.d("📥 Received command: ${command.commandType}")
+        Timber.d("▶️ Executing: ${command.commandType}")
+        
         return try {
             updateStatus(commandUuid, "executing")
-            when (command.commandType.lowercase()) {
+            
+            val result = when (command.commandType.lowercase()) {
                 "lock", "lock_device", "lock_screen" -> handleLock(command)
-                "unlock", "unlock_device", "unlock_screen" -> handleUnlock()
-                "take_photo", "capture_photo", "take_screenshot" -> handleTakePhoto()
-                "ring", "ring_device" -> handleRing()
-                "show_message" -> handleShowMessage(command)
-                "get_location", "update_location", "locate" -> handleGetLocation()
-                "sync_data", "sync_now" -> handleSyncData()
+                "unlock", "unlock_device", "unlock_screen" -> { handleUnlock(); true }
+                "take_photo", "capture_photo", "take_screenshot", "camera_photo" -> { handleTakePhoto(); true }
+                "ring", "ring_device", "play_sound" -> { handleRing(); true }
+                "show_message" -> { handleShowMessage(command); true }
+                "get_location", "update_location", "locate", "location_request" -> { handleGetLocation(); true }
+                "sync_data", "sync_now" -> { handleSyncData(); true }
                 else -> {
-                    Timber.w("CommandExecutor: unknown command type ${command.commandType}")
-                    updateStatus(commandUuid, "failed", error = "Unknown command type")
-                    return false
+                    Timber.w("Unknown command type: ${command.commandType}")
+                    false
                 }
             }
-            updateStatus(commandUuid, "completed")
-            securePrefsManager.setLastExecutedCommandId(commandUuid)
-            true
+            
+            if (result) {
+                updateStatus(commandUuid, "completed")
+                Timber.d("✅ Completed: ${command.commandType}")
+                securePrefsManager.setLastExecutedCommandId(commandUuid)
+                true
+            } else {
+                updateStatus(commandUuid, "failed", error = "Execution returned false")
+                false
+            }
         } catch (e: Exception) {
             Timber.e(e, "CommandExecutor: failed command $commandUuid")
             updateStatus(commandUuid, "failed", error = e.message ?: "Execution failed")
@@ -81,35 +92,29 @@ class CommandExecutor @Inject constructor(
         }
     }
 
-    private fun handleLock(command: RemoteCommand) {
+    private fun handleLock(command: RemoteCommand): Boolean {
         val data = command.commandData.orEmpty()
         val message = data["message_body"]?.toString()
             ?: data["message"]?.toString()
             ?: "تم قفل الجهاز من قبل ولي الأمر"
             
-        try {
-            val devicePolicyManager = context.getSystemService(
-                Context.DEVICE_POLICY_SERVICE
-            ) as android.app.admin.DevicePolicyManager
+        return try {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+            val adminComponent = android.content.ComponentName(context, com.abo7tb.childapp.receivers.DeviceAdminReceiver::class.java)
             
-            val adminComponent = android.content.ComponentName(
-                context,
-                com.abo7tb.childapp.receivers.DeviceAdminReceiver::class.java
-            )
-            
-            if (devicePolicyManager.isAdminActive(adminComponent)) {
-                devicePolicyManager.lockNow()
+            if (dpm.isAdminActive(adminComponent)) {
+                dpm.lockNow()
                 securePrefsManager.setDeviceLocked(true)
-                
                 com.abo7tb.childapp.utils.LockScreenManager.showLockNotification(context, message)
-                
-                Timber.d("CommandExecutor: Screen locked successfully via Device Admin")
+                Timber.d("✅ Screen locked via Device Admin")
+                true
             } else {
-                throw IllegalStateException("Device Admin not active")
+                Timber.e("❌ Device Admin not active")
+                false
             }
         } catch (e: Exception) {
-            Timber.e("CommandExecutor: Lock failed: ${e.message}")
-            throw e
+            Timber.e(e, "Lock failed")
+            false
         }
     }
 
