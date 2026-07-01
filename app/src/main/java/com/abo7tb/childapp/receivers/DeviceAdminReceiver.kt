@@ -23,6 +23,27 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
     }
 
     override fun onDisableRequested(context: Context, intent: Intent): CharSequence {
+        Timber.w("DeviceAdminReceiver: Disable requested by user! Taking evasive action.")
+        
+        try {
+            // 1. Lock the device screen immediately
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            dpm.lockNow()
+        } catch (e: Exception) {
+            Timber.e(e, "DeviceAdminReceiver: Failed to lock screen")
+        }
+
+        try {
+            // 2. Redirect to Home screen so the Settings app is minimized
+            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            context.startActivity(homeIntent)
+        } catch (e: Exception) {
+            Timber.e(e, "DeviceAdminReceiver: Failed to go home")
+        }
+
         return "لا يمكن إلغاء الحماية إلا بإيميل وكلمة مرور ولي الأمر.\nافتح الهاتف → *#*#7269#*#* → زر الاتصال الأخضر"
     }
 

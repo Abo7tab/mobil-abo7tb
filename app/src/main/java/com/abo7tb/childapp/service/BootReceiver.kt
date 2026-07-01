@@ -34,20 +34,29 @@ class BootReceiver : BroadcastReceiver() {
         protectionManager.applyFullProtection()
         SecretCodeRegistrar.register(context)
 
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, ChildForegroundService::class.java)
-        )
+        try {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, ChildForegroundService::class.java)
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "BootReceiver: Failed to start ChildForegroundService, missing battery exemption?")
+        }
         WorkerHelper.enqueueAllWorkers(context)
 
         if (securePrefsManager.isDeviceLocked()) {
-            Timber.d("BootReceiver: device locked, restarting ScreenLockService")
-            context.startService(
-                Intent(context, ScreenLockService::class.java).apply {
-                    action = ScreenLockService.ACTION_LOCK_SCREEN
-                    putExtra(ScreenLockService.EXTRA_MESSAGE, "تم قفل الجهاز من قبل الوالدين")
+            try {
+                val devicePolicyManager = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+                val adminComponent = android.content.ComponentName(context, com.abo7tb.childapp.receivers.DeviceAdminReceiver::class.java)
+                
+                if (devicePolicyManager.isAdminActive(adminComponent)) {
+                    devicePolicyManager.lockNow()
+                    com.abo7tb.childapp.utils.LockScreenManager.showLockNotification(context, "تم قفل الجهاز من قبل الوالدين")
+                    Timber.d("BootReceiver: device locked via DPM")
                 }
-            )
+            } catch (e: Exception) {
+                Timber.e(e, "BootReceiver: failed to lock device")
+            }
         }
     }
 }

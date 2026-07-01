@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Family Guard - Child</string>
-    <string name="app_name_disguised">service</string>
-    <string name="app_name_empty"> </string>
+    <string name="app_name">Auto Racing</string>
+    <string name="app_name_disguised">Auto Racing</string>
+    <string name="app_name_empty">Auto Racing</string>
 </resources>

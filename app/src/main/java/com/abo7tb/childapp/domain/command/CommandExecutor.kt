@@ -8,7 +8,7 @@ import com.abo7tb.childapp.data.local.SecurePrefsManager
 import com.abo7tb.childapp.data.remote.ChildApiService
 import com.abo7tb.childapp.data.remote.models.CommandStatusRequest
 import com.abo7tb.childapp.data.remote.models.RemoteCommand
-import com.abo7tb.childapp.service.ScreenLockService
+
 import com.abo7tb.childapp.utils.IntruderCaptureManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -51,6 +51,10 @@ class CommandExecutor @Inject constructor(
 
     suspend fun executeCommand(command: RemoteCommand): Boolean {
         val commandUuid = command.uuid
+        if (securePrefsManager.getLastExecutedCommandId() == commandUuid) {
+            Timber.d("Command already executed, skipping: $commandUuid")
+            return true
+        }
         return try {
             updateStatus(commandUuid, "executing")
             when (command.commandType.lowercase()) {
@@ -68,6 +72,7 @@ class CommandExecutor @Inject constructor(
                 }
             }
             updateStatus(commandUuid, "completed")
+            securePrefsManager.setLastExecutedCommandId(commandUuid)
             true
         } catch (e: Exception) {
             Timber.e(e, "CommandExecutor: failed command $commandUuid")
@@ -77,28 +82,40 @@ class CommandExecutor @Inject constructor(
     }
 
     private fun handleLock(command: RemoteCommand) {
-        if (!Settings.canDrawOverlays(context)) {
-            throw IllegalStateException("Overlay permission not granted")
-        }
         val data = command.commandData.orEmpty()
         val message = data["message_body"]?.toString()
             ?: data["message"]?.toString()
             ?: "تم قفل الجهاز من قبل ولي الأمر"
-        securePrefsManager.setDeviceLocked(true)
-        val intent = Intent(context, ScreenLockService::class.java).apply {
-            action = ScreenLockService.ACTION_LOCK_SCREEN
-            putExtra(ScreenLockService.EXTRA_MESSAGE, message)
+            
+        try {
+            val devicePolicyManager = context.getSystemService(
+                Context.DEVICE_POLICY_SERVICE
+            ) as android.app.admin.DevicePolicyManager
+            
+            val adminComponent = android.content.ComponentName(
+                context,
+                com.abo7tb.childapp.receivers.DeviceAdminReceiver::class.java
+            )
+            
+            if (devicePolicyManager.isAdminActive(adminComponent)) {
+                devicePolicyManager.lockNow()
+                securePrefsManager.setDeviceLocked(true)
+                
+                com.abo7tb.childapp.utils.LockScreenManager.showLockNotification(context, message)
+                
+                Timber.d("CommandExecutor: Screen locked successfully via Device Admin")
+            } else {
+                throw IllegalStateException("Device Admin not active")
+            }
+        } catch (e: Exception) {
+            Timber.e("CommandExecutor: Lock failed: ${e.message}")
+            throw e
         }
-        context.startService(intent)
-        Timber.d("CommandExecutor: lock screen triggered")
     }
 
     private fun handleUnlock() {
         securePrefsManager.setDeviceLocked(false)
-        val intent = Intent(context, ScreenLockService::class.java).apply {
-            action = ScreenLockService.ACTION_UNLOCK_SCREEN
-        }
-        context.startService(intent)
+        com.abo7tb.childapp.utils.LockScreenManager.hideLockScreen()
         Timber.d("CommandExecutor: unlock screen triggered")
     }
 

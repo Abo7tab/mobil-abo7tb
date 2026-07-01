@@ -2,6 +2,7 @@ package com.abo7tb.childapp.data.remote
 
 import com.abo7tb.childapp.data.remote.models.ApiResponse
 import com.abo7tb.childapp.data.remote.models.CallsRequest
+import com.abo7tb.childapp.data.remote.models.AppsRequest
 import com.abo7tb.childapp.data.remote.models.CommandStatusRequest
 import com.abo7tb.childapp.data.remote.models.ConsentAcceptRequest
 import com.abo7tb.childapp.data.remote.models.ContactsRequest
@@ -119,5 +120,11 @@ interface ChildApiService {
     suspend fun syncCalls(
         @Path("uuid") uuid: String,
         @Body request: CallsRequest
+    ): Response<Unit>
+
+    @POST("devices/{uuid}/apps/sync")
+    suspend fun syncApps(
+        @Path("uuid") uuid: String,
+        @Body request: AppsRequest
     ): Response<Unit>
 }

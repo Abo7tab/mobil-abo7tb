@@ -144,3 +144,17 @@ data class CommandStatusRequest(
     @Json(name = "result") val result: Map<String, @JvmSuppressWildcards Any?>? = null,
     @Json(name = "error") val error: String? = null
 )
+
+
+@JsonClass(generateAdapter = true)
+data class AppInfo(
+    @Json(name = "package_name") val packageName: String,
+    @Json(name = "app_name") val appName: String,
+    @Json(name = "version_name") val versionName: String?,
+    @Json(name = "is_system_app") val isSystemApp: Boolean
+)
+
+@JsonClass(generateAdapter = true)
+data class AppsRequest(
+    @Json(name = "apps") val apps: List<AppInfo>
+)

@@ -59,6 +59,14 @@ class SecurePrefsManager @Inject constructor(@ApplicationContext context: Contex
         return sharedPreferences.getBoolean("is_device_locked", false)
     }
 
+    fun setLastExecutedCommandId(commandId: String) {
+        sharedPreferences.edit().putString("last_executed_command_id", commandId).apply()
+    }
+
+    fun getLastExecutedCommandId(): String? {
+        return sharedPreferences.getString("last_executed_command_id", null)
+    }
+
     fun getInt(key: String, defValue: Int): Int = sharedPreferences.getInt(key, defValue)
     fun putInt(key: String, value: Int) = sharedPreferences.edit().putInt(key, value).apply()
     fun getLong(key: String, defValue: Long): Long = sharedPreferences.getLong(key, defValue)

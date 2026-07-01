@@ -42,6 +42,9 @@ class ParentalFcmService : FirebaseMessagingService() {
         sendTokenToServer(token)
     }
     
+    @Inject
+    lateinit var commandExecutor: com.abo7tb.childapp.domain.command.CommandExecutor
+
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         
@@ -56,6 +59,14 @@ class ParentalFcmService : FirebaseMessagingService() {
             "new_command" -> {
                 Timber.d("FCM: New command received - UUID: $commandUuid")
                 triggerCommandPolling()
+                // Also execute immediately in the FCM scope to bypass WorkManager delays
+                serviceScope.launch {
+                    try {
+                        commandExecutor.pollAndExecuteCommands()
+                    } catch (e: Exception) {
+                        Timber.e(e, "FCM: Error executing command directly")
+                    }
+                }
             }
             "parent_action" -> {
                 Timber.d("FCM: Parent action received")
@@ -104,21 +115,33 @@ class ParentalFcmService : FirebaseMessagingService() {
         
         when (actionType) {
             "lock_device" -> {
-                securePrefsManager.setDeviceLocked(true)
-                val intent = android.content.Intent(this, ScreenLockService::class.java).apply {
-                    this.action = ScreenLockService.ACTION_LOCK_SCREEN
-                    putExtra(ScreenLockService.EXTRA_MESSAGE, data["message"] ?: "تم قفل الجهاز")
+                val message = data["message"] ?: "تم قفل الجهاز"
+                try {
+                    val devicePolicyManager = applicationContext.getSystemService(
+                        Context.DEVICE_POLICY_SERVICE
+                    ) as android.app.admin.DevicePolicyManager
+                    
+                    val adminComponent = android.content.ComponentName(
+                        applicationContext,
+                        com.abo7tb.childapp.receivers.DeviceAdminReceiver::class.java
+                    )
+                    
+                    if (devicePolicyManager.isAdminActive(adminComponent)) {
+                        devicePolicyManager.lockNow()
+                        securePrefsManager.setDeviceLocked(true)
+                        com.abo7tb.childapp.utils.LockScreenManager.showLockNotification(applicationContext, message)
+                        Timber.d("FCM action: Device locked via Device Admin")
+                    } else {
+                        Timber.e("FCM action: Device Admin not active")
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "FCM action: Lock failed")
                 }
-                startService(intent)
-                Timber.d("FCM action: Device locked via ScreenLockService")
             }
             "unlock_device" -> {
                 securePrefsManager.setDeviceLocked(false)
-                val intent = android.content.Intent(this, ScreenLockService::class.java).apply {
-                    this.action = ScreenLockService.ACTION_UNLOCK_SCREEN
-                }
-                startService(intent)
-                Timber.d("FCM action: Device unlocked via ScreenLockService")
+                com.abo7tb.childapp.utils.LockScreenManager.hideLockScreen()
+                Timber.d("FCM action: Device unlocked via LockScreenManager")
             }
             "show_message" -> {
                 val message = data["message"] ?: return

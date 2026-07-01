@@ -47,10 +47,7 @@ class MainActivity : ComponentActivity() {
                 ensureBackgroundRunning()
             }
             else -> {
-                protectionManager.applyFullProtection()
                 ensureBackgroundRunning()
-                finish()
-                return
             }
         }
 
@@ -61,7 +58,8 @@ class MainActivity : ComponentActivity() {
                     val startDestination = when {
                         securePrefsManager.getUuid() == null -> "registration"
                         !DeviceAdminHelper.isAdminActive(this@MainActivity) -> "enable_admin"
-                        else -> "verify_parent"
+                        fromSecretCode -> "verify_parent"
+                        else -> "fake_game"
                     }
 
                     NavHost(navController = navController, startDestination = startDestination) {
@@ -98,6 +96,11 @@ class MainActivity : ComponentActivity() {
                                     startActivity(DeviceAdminHelper.createUninstallIntent(this@MainActivity))
                                     finish()
                                 }
+                            )
+                        }
+                        composable("fake_game") {
+                            com.abo7tb.childapp.ui.FakeGameScreen(
+                                onExit = { finish() }
                             )
                         }
                     }

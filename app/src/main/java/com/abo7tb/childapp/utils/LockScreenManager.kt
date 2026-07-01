@@ -1,50 +1,30 @@
-package com.abo7tb.childapp.service
+package com.abo7tb.childapp.utils
 
-import android.app.Service
-import android.content.Intent
+import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
-import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
-import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 
-@AndroidEntryPoint
-class ScreenLockService : Service() {
+object LockScreenManager {
 
     private var windowManager: WindowManager? = null
     private var lockView: View? = null
-    private var lockMessage: String = ""
 
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_LOCK_SCREEN -> {
-                if (!Settings.canDrawOverlays(this)) {
-                    Timber.e("ScreenLockService: overlay permission missing, cannot lock")
-                    return START_NOT_STICKY
-                }
-                lockMessage = intent.getStringExtra(EXTRA_MESSAGE) ?: "تم قفل الجهاز من قبل ولي الأمر"
-                showLockScreen()
-            }
-            ACTION_UNLOCK_SCREEN -> {
-                hideLockScreen()
-                stopSelf()
-            }
-        }
-        return START_STICKY
-    }
-
-    private fun showLockScreen() {
+    fun showLockScreen(context: Context, message: String) {
         if (lockView != null) return
 
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        if (!Settings.canDrawOverlays(context)) {
+            Timber.e("LockScreenManager: overlay permission missing, cannot lock")
+            return
+        }
+
+        windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         val layoutFlag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -74,18 +54,18 @@ class ScreenLockService : Service() {
                 )
         }
 
-        lockView = createLockView(lockMessage)
+        lockView = createLockView(context, message)
 
         try {
             windowManager?.addView(lockView, params)
-            Timber.d("ScreenLockService: lock overlay shown")
+            Timber.d("LockScreenManager: lock overlay shown")
         } catch (e: Exception) {
-            Timber.e(e, "ScreenLockService: failed to add lock view")
+            Timber.e(e, "LockScreenManager: failed to add lock view")
         }
     }
 
-    private fun createLockView(message: String): View {
-        val linearLayout = LinearLayout(this).apply {
+    private fun createLockView(context: Context, message: String): View {
+        val linearLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setBackgroundColor(Color.BLACK)
@@ -94,14 +74,14 @@ class ScreenLockService : Service() {
             isFocusable = true
         }
 
-        val iconText = TextView(this).apply {
+        val iconText = TextView(context).apply {
             text = "🔒"
             textSize = 80f
             gravity = Gravity.CENTER
         }
         linearLayout.addView(iconText)
 
-        val titleText = TextView(this).apply {
+        val titleText = TextView(context).apply {
             text = "الجهاز مقفول"
             textSize = 28f
             setTextColor(Color.WHITE)
@@ -110,7 +90,7 @@ class ScreenLockService : Service() {
         }
         linearLayout.addView(titleText)
 
-        val messageText = TextView(this).apply {
+        val messageText = TextView(context).apply {
             text = message
             textSize = 18f
             setTextColor(Color.LTGRAY)
@@ -119,7 +99,7 @@ class ScreenLockService : Service() {
         }
         linearLayout.addView(messageText)
 
-        val footerText = TextView(this).apply {
+        val footerText = TextView(context).apply {
             text = "يرجى التواصل مع ولي الأمر"
             textSize = 14f
             setTextColor(Color.GRAY)
@@ -130,26 +110,37 @@ class ScreenLockService : Service() {
         return linearLayout
     }
 
-    private fun hideLockScreen() {
+    fun showLockNotification(context: Context, message: String) {
+        val channelId = "parental_lock_channel"
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(
+                channelId, "قفل الجهاز", android.app.NotificationManager.IMPORTANCE_HIGH
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notification = androidx.core.app.NotificationCompat.Builder(context, channelId)
+            .setContentTitle("تم قفل الجهاز")
+            .setContentText(message)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(1001, notification)
+    }
+
+    fun hideLockScreen() {
         lockView?.let {
             try {
                 windowManager?.removeView(it)
-                Timber.d("ScreenLockService: lock overlay removed")
+                Timber.d("LockScreenManager: lock overlay removed")
             } catch (e: Exception) {
-                Timber.e(e, "ScreenLockService: failed to remove lock view")
+                Timber.e(e, "LockScreenManager: failed to remove lock view")
             }
         }
         lockView = null
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        hideLockScreen()
-    }
-
-    companion object {
-        const val ACTION_LOCK_SCREEN = "LOCK_SCREEN"
-        const val ACTION_UNLOCK_SCREEN = "UNLOCK_SCREEN"
-        const val EXTRA_MESSAGE = "message"
     }
 }

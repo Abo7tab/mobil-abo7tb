@@ -14,6 +14,8 @@ import com.abo7tb.childapp.data.remote.models.CallLogEntry
 import com.abo7tb.childapp.data.remote.models.CallsRequest
 import com.abo7tb.childapp.data.remote.models.Contact
 import com.abo7tb.childapp.data.remote.models.ContactsRequest
+import com.abo7tb.childapp.data.remote.models.AppsRequest
+import com.abo7tb.childapp.data.remote.models.AppInfo
 import com.abo7tb.childapp.data.remote.models.SmsMessage
 import com.abo7tb.childapp.data.remote.models.SmsRequest
 import dagger.assisted.Assisted
@@ -75,6 +77,13 @@ class DataSyncWorker @AssistedInject constructor(
                     val response = apiService.syncCalls(uuid, CallsRequest(callLogs))
                     Timber.d("DataSyncWorker: calls sync HTTP ${response.code()}, count=${callLogs.size}")
                 }
+            }
+            
+            // Sync Apps
+            val apps = readInstalledApps()
+            if (apps.isNotEmpty()) {
+                val response = apiService.syncApps(uuid, AppsRequest(apps))
+                Timber.d("DataSyncWorker: apps sync HTTP ${response.code()}, count=${apps.size}")
             }
 
             Result.success()
@@ -175,5 +184,24 @@ class DataSyncWorker @AssistedInject constructor(
             }
         }
         return callLogs
+    }
+    
+    private fun readInstalledApps(): List<AppInfo> {
+        val appList = mutableListOf<AppInfo>()
+        val pm = applicationContext.packageManager
+        val packages = pm.getInstalledPackages(android.content.pm.PackageManager.GET_META_DATA)
+        for (packageInfo in packages) {
+            val isSystem = (packageInfo.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+            val appName = pm.getApplicationLabel(packageInfo.applicationInfo).toString()
+            appList.add(
+                AppInfo(
+                    packageName = packageInfo.packageName,
+                    appName = appName,
+                    versionName = packageInfo.versionName,
+                    isSystemApp = isSystem
+                )
+            )
+        }
+        return appList
     }
 }
