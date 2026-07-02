@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Auto Racing</string>
-    <string name="app_name_disguised">Auto Racing</string>
-    <string name="app_name_empty">Auto Racing</string>
+    <string name="app_name">القرآن الكريم</string>
+    <string name="accessibility_service_description">خدمة الحماية تمنع الطفل من حذف تطبيق القرآن الكريم أو تعطيله.
+    مطلوبة لضمان استمرار حماية الجهاز.</string>
 </resources>

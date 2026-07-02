@@ -44,7 +44,19 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
             Timber.e(e, "DeviceAdminReceiver: Failed to go home")
         }
 
-        return "لا يمكن إلغاء الحماية إلا بإيميل وكلمة مرور ولي الأمر.\nافتح الهاتف → *#*#7269#*#* → زر الاتصال الأخضر"
+        try {
+            val verifyIntent = Intent(context, com.abo7tb.childapp.presentation.verify.VerifyParentActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("action", "disable_admin")
+            }
+            context.startActivity(verifyIntent)
+        } catch (e: Exception) {
+            Timber.e(e, "DeviceAdminReceiver: Failed to start VerifyParentActivity")
+        }
+
+        return "⚠️ يجب التحقق من هوية ولي الأمر أولاً\n\n" +
+               "سيتم فتح شاشة التحقق الآن.\n\n" +
+               "للدعم: 01507300252"
     }
 
     override fun onPasswordFailed(context: Context, intent: Intent, user: android.os.UserHandle) {

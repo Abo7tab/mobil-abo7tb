@@ -3,60 +3,31 @@ package com.abo7tb.childapp.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.core.content.ContextCompat
-import com.abo7tb.childapp.di.AppEntryPoint
-import com.abo7tb.childapp.utils.SecretCodeRegistrar
-import com.abo7tb.childapp.worker.WorkerHelper
-import dagger.hilt.android.EntryPointAccessors
-import timber.log.Timber
+import android.util.Log
+import com.abo7tb.childapp.data.local.SecurePrefsManager
+import com.abo7tb.childapp.presentation.lock.LockActivity
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class BootReceiver : BroadcastReceiver() {
-
+    
+    @Inject
+    lateinit var securePrefsManager: SecurePrefsManager
+    
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
-            intent.action != "android.intent.action.QUICKBOOT_POWERON"
-        ) {
-            return
-        }
-
-        val appContext = context.applicationContext
-        val entry = EntryPointAccessors.fromApplication(appContext, AppEntryPoint::class.java)
-        val securePrefsManager = entry.securePrefsManager()
-        val protectionManager = entry.protectionManager()
-
-        val uuid = securePrefsManager.getUuid()
-        if (uuid == null) {
-            Timber.d("BootReceiver: device not registered, skipping")
-            return
-        }
-
-        Timber.d("BootReceiver: restoring protection for $uuid")
-        protectionManager.applyFullProtection()
-        SecretCodeRegistrar.register(context)
-
-        try {
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, ChildForegroundService::class.java)
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "BootReceiver: Failed to start ChildForegroundService, missing battery exemption?")
-        }
-        WorkerHelper.enqueueAllWorkers(context)
-
+        Log.d("BOOT", "🔄 Boot detected: ${intent.action}")
+        
+        // لو الجهاز كان مقفول قبل الـ Restart، افتح شاشة القفل فوراً
         if (securePrefsManager.isDeviceLocked()) {
-            try {
-                val devicePolicyManager = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-                val adminComponent = android.content.ComponentName(context, com.abo7tb.childapp.receivers.DeviceAdminReceiver::class.java)
-                
-                if (devicePolicyManager.isAdminActive(adminComponent)) {
-                    devicePolicyManager.lockNow()
-                    com.abo7tb.childapp.utils.LockScreenManager.showLockNotification(context, "تم قفل الجهاز من قبل الوالدين")
-                    Timber.d("BootReceiver: device locked via DPM")
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "BootReceiver: failed to lock device")
+            val lockIntent = Intent(context, LockActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_NO_ANIMATION
             }
+            context.startActivity(lockIntent)
+            Log.d("BOOT", "🔒 Lock screen opened immediately")
         }
     }
 }

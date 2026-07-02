@@ -49,8 +49,13 @@ data class ParentVerificationRequest(
 
 @JsonClass(generateAdapter = true)
 data class ParentVerificationResponse(
+    @Json(name = "success") val success: Boolean,
     @Json(name = "verified") val verified: Boolean,
-    @Json(name = "verification_token") val verificationToken: String?
+    @Json(name = "verification_token") val verificationToken: String? = null,
+    @Json(name = "expires_in") val expiresIn: Int? = null,
+    @Json(name = "attempts_remaining") val attemptsRemaining: Int? = null,
+    @Json(name = "retry_after_sec") val retryAfterSec: Int? = null,
+    @Json(name = "message") val message: String?
 )
 
 @JsonClass(generateAdapter = true)

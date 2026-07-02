@@ -31,12 +31,28 @@ class SecurePrefsManager @Inject constructor(@ApplicationContext context: Contex
         return sharedPreferences.getString(Constants.TOKEN_KEY, null)
     }
 
+    fun saveVerificationToken(token: String) {
+        sharedPreferences.edit().putString("verification_token", token).apply()
+    }
+
+    fun getVerificationToken(): String? {
+        return sharedPreferences.getString("verification_token", null)
+    }
+
     fun saveUuid(uuid: String) {
         sharedPreferences.edit().putString(Constants.UUID_KEY, uuid).apply()
     }
 
     fun getUuid(): String? {
         return sharedPreferences.getString(Constants.UUID_KEY, null)
+    }
+
+    fun saveParentEmail(email: String) {
+        sharedPreferences.edit().putString("parent_email", email).apply()
+    }
+
+    fun getParentEmail(): String? {
+        return sharedPreferences.getString("parent_email", null)
     }
 
     fun clear() {

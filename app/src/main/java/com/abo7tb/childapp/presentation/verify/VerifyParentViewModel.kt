@@ -2,6 +2,7 @@ package com.abo7tb.childapp.presentation.verify
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.abo7tb.childapp.data.local.SecurePrefsManager
 import com.abo7tb.childapp.data.repository.DeviceRepository
 import com.abo7tb.childapp.utils.AttemptResult
 import com.abo7tb.childapp.utils.IntruderCaptureManager
@@ -18,6 +19,7 @@ import javax.inject.Inject
 @HiltViewModel
 class VerifyParentViewModel @Inject constructor(
     private val deviceRepository: DeviceRepository,
+    private val securePrefsManager: SecurePrefsManager,
     private val passwordAttemptManager: PasswordAttemptManager,
     private val intruderCaptureManager: IntruderCaptureManager
 ) : ViewModel() {
@@ -47,7 +49,7 @@ class VerifyParentViewModel @Inject constructor(
             _state.update {
                 it.copy(
                     lockStatus = lockStatus,
-                    errorMessage = "الشاشة مقفولة. حاول لاحقاً."
+                    errorMessage = "الشاشة مقفلة. حاول لاحقاً."
                 )
             }
             return
@@ -57,22 +59,52 @@ class VerifyParentViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
+                android.util.Log.d("VERIFY", "🔐 Sending verification request...")
                 val result = deviceRepository.verifyParent(email, password)
-                
-                if (result.isSuccess) {
+                android.util.Log.d("VERIFY", "Result: ${result.isSuccess}")
+                val body = result.getOrNull()
+
+                if (body != null && body.verified) {
+                    body.verificationToken?.let { token ->
+                        securePrefsManager.saveVerificationToken(token)
+                        android.util.Log.d("VERIFY", "✅ Saved verification token")
+                    }
                     passwordAttemptManager.recordSuccessfulAttempt()
                     _state.update {
                         it.copy(
                             isLoading = false,
                             isVerified = true,
-                            verificationToken = result.getOrNull()?.verificationToken
+                            errorMessage = null
                         )
                     }
+                    android.util.Log.d("VERIFY", "✅ Password correct, executing action")
                 } else {
+                    android.util.Log.w("VERIFY", "❌ Wrong password or verification error")
+                    val message = body?.message
+                    val attemptsRemaining = body?.attemptsRemaining
+                    val retryAfter = body?.retryAfterSec
+
+                    if (!message.isNullOrBlank() || attemptsRemaining != null || retryAfter != null) {
+                        val details = buildString {
+                            if (!message.isNullOrBlank()) append(message)
+                            if (attemptsRemaining != null) {
+                                if (isNotEmpty()) append(" ")
+                                append("متبقي $attemptsRemaining محاولات.")
+                            }
+                            if (retryAfter != null) {
+                                if (isNotEmpty()) append(" ")
+                                append("حاول مرة أخرى بعد $retryAfter ثانية.")
+                            }
+                        }
+                        _state.update { it.copy(isLoading = false, errorMessage = details) }
+                    } else {
+                        _state.update { it.copy(isLoading = false, errorMessage = "خطأ في التحقق. حاول مرة أخرى.") }
+                    }
                     handleFailedAttempt(email)
                 }
             } catch (e: Exception) {
-                handleFailedAttempt(email)
+                android.util.Log.e("VERIFY", "❌ Error: ${e.message}", e)
+                _state.update { it.copy(isLoading = false, errorMessage = "خطأ: ${e.message ?: "حدث خطأ"}") }
             }
         }
     }

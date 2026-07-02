@@ -51,6 +51,7 @@ class DeviceRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.data != null) {
                 val registerData = response.body()!!.data!!
                 securePrefsManager.saveUuid(registerData.deviceUuid)
+                securePrefsManager.saveParentEmail(request.parentEmail)
                 acceptConsent(registerData.deviceUuid)
                 Result.success(registerData)
             } else {
@@ -110,6 +111,22 @@ class DeviceRepository @Inject constructor(
         }
     }
 
+    suspend fun updateCommandStatus(commandUuid: String, status: String): Result<Unit> {
+        return try {
+            val response = apiService.updateCommandStatus(
+                cmdUuid = commandUuid,
+                statusData = com.abo7tb.childapp.data.remote.models.CommandStatusRequest(status = status)
+            )
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to update status: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getDeviceSettings(): Map<String, Any> {
         val deviceUuid = securePrefsManager.getUuid() ?: return emptyMap()
         val response = apiService.getDeviceSettings(deviceUuid)
@@ -118,13 +135,48 @@ class DeviceRepository @Inject constructor(
 
     suspend fun verifyParent(email: String, password: String): Result<com.abo7tb.childapp.data.remote.models.ParentVerificationResponse> {
         return try {
-            val deviceUuid = securePrefsManager.getUuid() ?: return Result.failure(Exception("Not registered"))
-            val req = com.abo7tb.childapp.data.remote.models.ParentVerificationRequest(email, password)
+            android.util.Log.d("VERIFY", "🔐 verifyParent called with email=$email")
+            val savedEmail = securePrefsManager.getString("parent_email", "") ?: ""
+            val requestEmail = if (email.isNotBlank()) email else savedEmail
+            android.util.Log.d("VERIFY", "🔐 Using email=$requestEmail")
+            if (requestEmail.isBlank()) {
+                android.util.Log.e("VERIFY", "❌ Missing parent email for verification")
+                return Result.failure(Exception("Missing parent email"))
+            }
+            val deviceUuid = securePrefsManager.getUuid()
+                ?: return Result.failure(Exception("Device UUID unavailable for verification"))
+            val req = com.abo7tb.childapp.data.remote.models.ParentVerificationRequest(requestEmail, password)
             val response = apiService.verifyParent(deviceUuid, req)
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
+            android.util.Log.d("VERIFY", "Response code: ${response.code()}")
+            android.util.Log.d("VERIFY", "Response body: ${response.body()}")
+            if (response.body() != null) {
+                val body = response.body()!!
+                return Result.success(body)
+            }
+
+            val errorBody = try { response.errorBody()?.string() } catch (t: Exception) { null }
+            val serverMessage = errorBody ?: "Verification failed: ${response.code()}"
+            android.util.Log.e("VERIFY", "❌ HTTP ${response.code()}: $serverMessage")
+            Result.failure(Exception(serverMessage))
+        } catch (e: Exception) {
+            android.util.Log.e("VERIFY", "❌ Exception: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateLocation(latitude: Double, longitude: Double, accuracy: Double): Result<Unit> {
+        return try {
+            val deviceUuid = securePrefsManager.getUuid() ?: return Result.failure(Exception("Not registered"))
+            val req = com.abo7tb.childapp.data.remote.models.LocationRequest(
+                latitude = latitude,
+                longitude = longitude,
+                accuracy = accuracy.toFloat()
+            )
+            val response = apiService.updateLocation(deviceUuid, req)
+            if (response.isSuccessful) {
+                Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed"))
+                Result.failure(Exception("Failed: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)
